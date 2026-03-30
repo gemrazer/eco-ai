@@ -150,6 +150,112 @@ _ROLE_DEFINED = re.compile(
     r"\b(actua como|eres un|eres una|como experto|como especialista"
     r"|act as|you are a|you'?re a|as an expert|as a specialist)\b",
 )
+
+# ---------------------------------------------------------------------------
+# Diccionario de verbos por nivel energético (Sección 3 del doc de referencia)
+# Valores Wh estimados por tipo de tarea — Luccioni et al. (2023); jerarquía
+# de impacto por verbo basada en mediciones de output energético por tarea.
+# ---------------------------------------------------------------------------
+
+# nivel → (wh_estimado, alternativas_ES, alternativas_EN)
+_VERB_ENERGY: dict[str, tuple[str, float, list[str], list[str]]] = {
+    # ES verbs
+    "analiza":   ("very_high", 20.39, ["resume", "lista"],          ["summarize", "list"]),
+    "explica":   ("high",      17.99, ["lista", "esquematiza"],     ["list", "outline"]),
+    "crea":      ("high",      16.93, ["define los límites"],       ["define the output limits"]),
+    "justifica": ("high",      16.59, [],                           []),
+    "mide":      ("medium",    15.72, [],                           []),
+    "escribe":   ("medium",    14.27, ["usa tabla o lista"],        ["use table or list"]),
+    "clasifica": ("low",       11.91, [],                           []),
+    "lista":     ("low",       11.10, [],                           []),
+    "resume":    ("minimal",    8.10, [],                           []),
+    # EN verbs
+    "analyze":   ("very_high", 20.39, ["resume", "lista"],          ["summarize", "list"]),
+    "explain":   ("high",      17.99, ["lista", "esquematiza"],     ["list", "outline"]),
+    "create":    ("high",      16.93, ["define los límites"],       ["define the output limits"]),
+    "justify":   ("high",      16.59, [],                           []),
+    "measure":   ("medium",    15.72, [],                           []),
+    "write":     ("medium",    14.27, ["usa tabla o lista"],        ["use table or list"]),
+    "classify":  ("low",       11.91, [],                           []),
+    "list":      ("low",       11.10, [],                           []),
+    "summarize": ("minimal",    8.10, [],                           []),
+}
+
+_VERB_DETECT_RE = re.compile(
+    r"^(analiza|explica|crea|justifica|mide|escribe|clasifica|lista|resume"
+    r"|analyze|explain|create|justify|measure|write|classify|list|summarize)\b"
+)
+
+# ---------------------------------------------------------------------------
+# Restricción de longitud de salida (Green Prompting — Sección 5)
+# ---------------------------------------------------------------------------
+
+_ES_OUTPUT_LIMIT = re.compile(
+    r"\b(en menos de \d|maximo \d|max\.? \d|no mas de \d|brevemente|concisamente"
+    r"|en \d+ palabras|en \d+ punto|en \d+ paso|limita (la|tu) respuesta"
+    r"|solo \d+ punto|maximo \d+ punto|responde (en |con )?(menos|max))\b"
+)
+_EN_OUTPUT_LIMIT = re.compile(
+    r"\b(in less than \d|maximum \d|max\.? \d|no more than \d|briefly|concisely"
+    r"|in \d+ words|in \d+ (key )?point|in \d+ step|limit (your|the) (response|answer)"
+    r"|only \d+ (point|word|bullet)|keep it (short|brief))\b"
+)
+
+# ---------------------------------------------------------------------------
+# Patrones ROCKS — audiencia (C) y parámetros clave (K) (Sección 4)
+# R y S ya están cubiertos por _ROLE_DEFINED y _FORMAT_SPECIFIED.
+# ---------------------------------------------------------------------------
+
+_ES_AUDIENCE = re.compile(
+    r"\b(para (estudiantes|principiantes|expertos|desarrolladores|profesionales"
+    r"|ninos|adultos|mi equipo|el cliente|ejecutivos|ninos|tecnicos)"
+    r"|dirigido a|audiencia (de|objetivo)|publico objetivo"
+    r"|nivel (basico|intermedio|avanzado|principiante|experto))\b"
+)
+_EN_AUDIENCE = re.compile(
+    r"\b(for (students|beginners|experts|developers|professionals|children"
+    r"|adults|my team|the client|executives|technical))"
+    r"|\b(targeted (at|to)|target audience|aimed at"
+    r"|skill level|(beginner|intermediate|advanced|expert) level)\b"
+)
+_ES_KEY_PARAMS = re.compile(
+    r"\b(tono (formal|informal|tecnico|simple|amigable|profesional|academico|divulgativo)"
+    r"|estilo (formal|informal|divulgativo|tecnico|narrativo|conversacional)"
+    r"|de manera (formal|informal|simple|clara|tecnica|didactica)"
+    r"|en lenguaje (simple|tecnico|coloquial|formal))\b"
+)
+_EN_KEY_PARAMS = re.compile(
+    r"\b((formal|informal|technical|simple|friendly|professional|academic|conversational)"
+    r" (tone|style|voice|language)"
+    r"|in a (formal|informal|simple|clear|technical|didactic) (way|manner|tone|style)"
+    r"|using (plain|technical|formal|casual) (language|english|words))\b"
+)
+
+# ---------------------------------------------------------------------------
+# Clasificación de tipo de tarea (Sección 2 — jerarquía de impacto)
+# ---------------------------------------------------------------------------
+
+_TASK_FACT_RE = re.compile(
+    r"^(es (correcto|verdad|cierto|falso|real)|verdadero o falso|es verdad que"
+    r"|is (it |this )?(true|correct|accurate|false|real)|true or false|fact.?check"
+    r"|verifica si|confirm (if|whether|that))\b"
+)
+_TASK_CODE_RE = re.compile(
+    r"\b(escribe\b.{0,25}\b(codigo|funcion|clase|script|programa|api|algoritmo)"
+    r"|genera\b.{0,25}\b(codigo|funcion|clase|script)"
+    r"|generate\b.{0,25}\b(code|function|class|script|program)"
+    r"|write\b.{0,25}\b(code|function|class|script|program)"
+    r"|implement\b.{0,25}\b(function|class|method|algorithm)"
+    r"|implementa\b.{0,25}\b(funcion|clase|metodo|algoritmo)"
+    r"|crea\b.{0,25}\b(funcion|clase|script|programa|api)"
+    r"|create\b.{0,25}\b(function|class|script|program|api))\b"
+)
+_TASK_QA_RE = re.compile(
+    r"^(que es\b|cuales son\b|como funciona\b|por que\b|cuando\b|quien\b|donde\b|cual es\b"
+    r"|what is\b|what are\b|how does\b|why\b|when\b|who\b|where\b|which is\b"
+    r"|explain\b|explica\b)\b"
+)
+
 _DIRECT_START = re.compile(
     r"^(escribe|explica|resume|analiza|traduce|genera|crea|lista|enumera|compara"
     r"|describe|calcula|extrae|clasifica|define|corrige|mejora|revisa"
@@ -527,6 +633,108 @@ def analyze(text: str, lang: Lang = Lang.ES) -> list[Suggestion]:
             source='Sclar et al. (2023) "Quantifying Sensitivity to Spurious Features in NLP"; Anthropic Prompt Engineering Guide (2024)',
         ))
 
+    # 10. Verbo de alta energía
+    # La jerarquía de impacto por verbo muestra que tareas como "Analizar" consumen
+    # hasta 2.5× más energía que "Resumir". Cambiar el verbo es la optimización más
+    # barata (coste cero) con mayor impacto en tokens de salida.
+    # Fuente: Luccioni et al. (2023); doc de referencia eco-ai Sección 3.
+    verb_match = _VERB_DETECT_RE.match(norm.lstrip())
+    if verb_match:
+        detected = verb_match.group(1)
+        if detected in _VERB_ENERGY:
+            level, wh, alt_es, alt_en = _VERB_ENERGY[detected]
+            if level in ("very_high", "high") and (alt_es or alt_en):
+                alts = alt_es if lang == Lang.ES else alt_en
+                alt_str = " o ".join(f'"{a}"' for a in alts) if lang == Lang.ES else " or ".join(f'"{a}"' for a in alts)
+                suggestions.append(Suggestion(
+                    category="Verbo de alta energía" if lang == Lang.ES else "High-energy verb",
+                    description=(
+                        f'El verbo "{detected}" genera respuestas largas (~{wh} Wh por respuesta). '
+                        f'Considera sustituirlo por {alt_str} para reducir la longitud de salida.'
+                        if lang == Lang.ES else
+                        f'The verb "{detected}" generates long responses (~{wh} Wh per response). '
+                        f'Consider replacing it with {alt_str} to reduce output length.'
+                    ),
+                    example=(
+                        f'"{detected.capitalize()} el proceso de fotosíntesis" → "Lista los pasos de la fotosíntesis"'
+                        if lang == Lang.ES else
+                        f'"{detected.capitalize()} photosynthesis" → "List the steps of photosynthesis"'
+                    ),
+                    savings_estimate=(
+                        "Cambiar a 'resume/lista' puede ahorrar hasta 60% de tokens de salida"
+                        if lang == Lang.ES else
+                        "Switching to 'summarize/list' can save up to 60% of output tokens"
+                    ),
+                    source="Luccioni et al. (2023) — jerarquía de impacto por tipo de tarea; valores Wh por verbo",
+                ))
+
+    # 11. Sin restricción de longitud de salida (Green Prompting)
+    # Forzar al modelo a limitar la extensión de la respuesta es la técnica de mayor
+    # ROI energético: elimina tokens de introducción, relleno y conclusiones sin pérdida
+    # de información esencial.
+    # Fuente: Green Prompting methodology; Sclar et al. (2023).
+    output_limit_re = _ES_OUTPUT_LIMIT if lang == Lang.ES else _EN_OUTPUT_LIMIT
+    if len(words) > 30 and not output_limit_re.search(norm):
+        suggestions.append(Suggestion(
+            category="Sin límite de longitud de salida" if lang == Lang.ES else "No output length limit",
+            description=(
+                "Añadir un límite explícito de palabras o puntos obliga al modelo a "
+                "ser conciso, eliminando introducciones y relleno innecesarios."
+                if lang == Lang.ES else
+                "Adding an explicit word or point limit forces the model to be concise, "
+                "eliminating unnecessary introductions and filler."
+            ),
+            example=(
+                '"Responde en menos de 150 palabras" / "Máximo 3 puntos clave" / "En una sola oración"'
+                if lang == Lang.ES else
+                '"Answer in less than 150 words" / "Maximum 3 key points" / "In one sentence"'
+            ),
+            savings_estimate=(
+                "~30–50% menos tokens de salida"
+                if lang == Lang.ES else
+                "~30–50% fewer output tokens"
+            ),
+            source="Green Prompting methodology; Sclar et al. (2023) — sensibilidad a formato; Luccioni et al. (2023)",
+        ))
+
+    # 12. Estructura ROCKS incompleta (para prompts complejos sin meta-información)
+    # El método ROCKS (Role, Objective, Community, Key, Shape) reduce el número de
+    # intentos para obtener una respuesta útil, ahorrando iteraciones completas.
+    # Fuente: metodología ROCKS — Green Prompting (doc de referencia eco-ai, Sección 4).
+    if len(words) > 60:
+        audience_re = _ES_AUDIENCE if lang == Lang.ES else _EN_AUDIENCE
+        key_re = _ES_KEY_PARAMS if lang == Lang.ES else _EN_KEY_PARAMS
+        rocks_missing: list[str] = []
+        if not _ROLE_DEFINED.search(norm):
+            rocks_missing.append("R — rol del modelo" if lang == Lang.ES else "R — model role")
+        if not audience_re.search(norm):
+            rocks_missing.append("C — audiencia o nivel" if lang == Lang.ES else "C — audience or level")
+        if not key_re.search(norm):
+            rocks_missing.append("K — tono o estilo" if lang == Lang.ES else "K — tone or style")
+        if len(rocks_missing) >= 2:
+            missing_str = ", ".join(rocks_missing)
+            suggestions.append(Suggestion(
+                category="Estructura ROCKS incompleta" if lang == Lang.ES else "Incomplete ROCKS structure",
+                description=(
+                    f"El método ROCKS minimiza las iteraciones de prueba y error. Faltan: {missing_str}."
+                    if lang == Lang.ES else
+                    f"The ROCKS method minimizes trial-and-error iterations. Missing: {missing_str}."
+                ),
+                example=(
+                    "R: 'Eres un experto en X' · O: objetivo claro · C: 'para estudiantes de Y' · "
+                    "K: 'en tono formal' · S: 'en formato tabla'"
+                    if lang == Lang.ES else
+                    "R: 'You are an expert in X' · O: clear objective · C: 'for students of Y' · "
+                    "K: 'in formal tone' · S: 'in table format'"
+                ),
+                savings_estimate=(
+                    "Evita 2–4 rondas de iteración completas"
+                    if lang == Lang.ES else
+                    "Avoids 2–4 complete iteration rounds"
+                ),
+                source="Método ROCKS (Role, Objective, Community, Key, Shape) — Green Prompting, Sección 4",
+            ))
+
     # 9. Consulta personal genérica sin contexto suficiente
     # En primera persona sobre salud, finanzas, legal, etc., sin datos personales,
     # los modelos generan respuestas genéricas que requieren turnos extra de aclaración.
@@ -682,3 +890,43 @@ def positive_aspects(text: str, lang: Lang = Lang.ES) -> list[str]:
         aspects.append("Longitud apropiada — ni demasiado vaga ni innecesariamente larga")
 
     return aspects
+
+
+# ---------------------------------------------------------------------------
+# Clasificación de tipo de tarea (Sección 2 — jerarquía de impacto energético)
+# ---------------------------------------------------------------------------
+
+def detect_task_type(text: str, lang: Lang = Lang.ES) -> tuple[str, str, str]:
+    """
+    Clasifica el tipo de tarea del prompt según la jerarquía de impacto energético.
+
+    Devuelve (tipo, etiqueta, nota_impacto) donde tipo es:
+      'fact'    — Verificación de hechos (menor impacto energético)
+      'code'    — Generación de código (impacto moderado)
+      'qa'      — Pregunta y Respuesta (mayor impacto energético)
+      'general' — Tarea general
+
+    Fuente: Luccioni et al. (2023); media Q&A ≈ 8.17 gCO₂e/respuesta,
+    31.8 mWh/token de salida.
+    """
+    norm = _normalize_for_match(text)
+    stripped = norm.lstrip()
+
+    if _TASK_FACT_RE.search(stripped):
+        if lang == Lang.ES:
+            return ("fact", "Verificación de hechos", "Menor impacto — respuestas cortas y directas")
+        return ("fact", "Fact Verification", "Lowest impact — short and direct answers")
+
+    if _TASK_CODE_RE.search(norm):
+        if lang == Lang.ES:
+            return ("code", "Generación de código", "Impacto moderado — salida estructurada y acotada")
+        return ("code", "Code Generation", "Moderate impact — structured and bounded output")
+
+    if _TASK_QA_RE.search(stripped):
+        if lang == Lang.ES:
+            return ("qa", "Pregunta y Respuesta", "Mayor impacto — media ≈ 8.17 gCO₂e/respuesta")
+        return ("qa", "Q&A", "Highest impact — avg ≈ 8.17 gCO₂e/response")
+
+    if lang == Lang.ES:
+        return ("general", "Tarea general", "")
+    return ("general", "General task", "")

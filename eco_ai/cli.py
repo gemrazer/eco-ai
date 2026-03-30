@@ -15,7 +15,7 @@ from rich.table import Table
 
 from .config import Lang, get_lang, set_lang
 from .metrics import MODEL_PRICES_USD, MODEL_TIER, calculate_impact
-from .optimizer import analyze as analyze_prompt, positive_aspects, recommend_model
+from .optimizer import analyze as analyze_prompt, detect_task_type, positive_aspects, recommend_model
 from .tokenizer import count_tokens, tokenizer_source
 
 WELCOME = """[bold green]eco-ai[/bold green] — [italic]uso consciente de la inteligencia artificial[/italic]
@@ -244,8 +244,17 @@ def analyze(
         border_style="green",
     ))
 
+    effective_lang = lang or get_lang()
+
+    # Tipo de tarea (siempre visible — afecta al impacto energético)
+    task_type, task_label, task_note = detect_task_type(text, effective_lang)
+    _type_color = {"qa": "red", "code": "yellow", "fact": "green", "general": "dim"}.get(task_type, "dim")
+    task_line = f"[{_type_color}]{task_label}[/{_type_color}]"
+    if task_note:
+        task_line += f"  [dim]{task_note}[/dim]"
+    console.print(f"[bold]Tipo de tarea detectado:[/bold] {task_line}\n")
+
     if not no_tips:
-        effective_lang = lang or get_lang()
         suggestions = analyze_prompt(text, effective_lang)
         rec = recommend_model(text, tokens)
         positives = positive_aspects(text, effective_lang)
