@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "eco-ai"
+version = "0.1.0"
+description = "Analiza el impacto ecológico de tus prompts de IA y sugiere cómo optimizarlos"
+requires-python = ">=3.8"
+dependencies = [
+    "typer>=0.12",
+    "rich>=13",
+    "tiktoken>=0.7",
+]
+
+[project.scripts]
+eco-ai = "eco_ai.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["eco_ai"]
