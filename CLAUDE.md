@@ -83,13 +83,41 @@ R y S ya están cubiertos por `_ROLE_DEFINED` y `_FORMAT_SPECIFIED`. C y K por `
 3. **Evitar vaguedad** — `"cuéntame todo sobre X"` → pregunta enfocada
 4. **Chaining logic** — dividir tareas complejas en pasos secuenciales
 
+## Key Reference: Additional Analysis Rules
+
+### Few-shot prompting
+Si el prompt describe un patrón o formato esperado (detectar: "como este ejemplo", "en el mismo formato que", "following this pattern"…) pero **no incluye un ejemplo concreto** de input/output → sugerir añadir 1–2 ejemplos.
+Patrón: `_PATTERN_WITHOUT_EXAMPLE_RE`. Fuente: DAIR.AI Prompt Engineering Guide.
+
+### Chain-of-thought
+Si `_REASONING` detecta una tarea de razonamiento complejo **y** el prompt no contiene "paso a paso" / "step by step" / "think step" → sugerir `"Piensa paso a paso antes de responder."`.
+Fuente: Anthropic Prompt Engineering Guide (2024) — extended thinking; OpenAI Best Practices (2024).
+
+### Contexto multi-documento (scoring de modelo)
+≥2 de estas señales → `score += 2` con señal "contexto multi-documento": XML tags (`<document`, `<context`…), `###` repetidos, `---` repetidos, ≥2 bloques de código, ≥3 saltos de línea dobles.
+Fuente: Liu et al. (2023) "Lost in the Middle".
+
+### Imagen: checks adicionales
+- **Estilos contradictorios** — fotorrealista + cartoon/anime → elegir un solo estilo.
+- **Prompt >80 palabras** — mover sujeto y estilo al principio (CLIP pondera primeros tokens).
+- **Sin iluminación/mood** — sugerir golden hour, studio lighting, dramatic shadows, etc.
+
+### Código: checks específicos (`output_type == "code"`)
+- Lenguaje no especificado → indicar lenguaje.
+- Tests/docstrings no mencionados → aclarar si se quieren.
+- ≥2 conectores aditivos ("además", "también", "also"…) → prompt chaining.
+Fuente: Anthropic Prompt Engineering Guide (2024) — prompt chaining para tareas complejas.
+
 ## Sources
 
 - Luccioni et al. (2023) "Power Hungry Processing" — energía por token de inferencia
 - Strubell et al. (2019) — CO₂ de entrenamiento/inferencia NLP
 - Microsoft Sustainability Report 2023 — agua en centros de datos
 - IEA Global Energy & CO₂ Status 2023 — factor de emisión eléctrica
-- Anthropic Prompt Engineering Guide (2024)
-- Liu et al. (2023) "Lost in the Middle"
-- Min et al. (2022) "Rethinking the Role of Demonstrations"
+- Anthropic Prompt Engineering Guide (2024) — especificidad, XML structuring, extended thinking, prompt chaining
+- OpenAI Best Practices (2024) — chain-of-thought, especificidad
+- DAIR.AI Prompt Engineering Guide — few-shot prompting
+- Liu et al. (2023) "Lost in the Middle" — degradación en contextos largos
+- Min et al. (2022) "Rethinking the Role of Demonstrations" — saturación de few-shot
 - Sclar et al. (2023) — sensibilidad al formato del prompt
+- Zhao et al. (2021) "Calibrate Before Use" — sesgo con demasiados ejemplos few-shot

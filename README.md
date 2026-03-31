@@ -96,7 +96,7 @@ eco-ai config --lang en
 2. **Energy metrics** — estimates kWh based on the model tier (Luccioni et al., 2023)
 3. **CO₂** — converts energy to emissions using a cloud provider emission factor (IEA, 2023)
 4. **Water** — estimates data centre cooling consumption (Microsoft Sustainability Report, 2023)
-5. **Prompt analysis** — detects high-energy verbs, missing output limits, incomplete ROCKS structure, courtesy phrases, vague language, and more
+5. **Prompt analysis** — detects high-energy verbs, missing output limits, incomplete ROCKS structure, courtesy phrases, vague language, missing few-shot examples, missing chain-of-thought instruction, and more
 6. **Model recommendation** — suggests the most appropriate tier based on the prompt's complexity
 
 ---
@@ -106,8 +106,12 @@ eco-ai config --lang en
 - Luccioni et al. (2023) *Power Hungry Processing: Scrutinizing Energy Use in NLP*
 - Liu et al. (2023) *Lost in the Middle: How Language Models Use Long Contexts*
 - Min et al. (2022) *Rethinking the Role of Demonstrations in Few-Shot Prompting*
+- Zhao et al. (2021) *Calibrate Before Use: Improving Few-Shot Performance of Language Models*
 - Webson & Pavlick (2021) *Do Prompt-Based Models Really Understand the Meaning of Their Prompts?*
+- Sclar et al. (2023) — sensitivity to prompt formatting in LLMs
 - Anthropic Prompt Engineering Guide (2024)
+- OpenAI Best Practices (2024)
+- DAIR.AI Prompt Engineering Guide
 
 ---
 
