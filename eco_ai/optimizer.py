@@ -187,6 +187,33 @@ _VERB_DETECT_RE = re.compile(
 )
 
 # ---------------------------------------------------------------------------
+# Hints de contexto para prompts muy cortos, indexados por tipo de output.
+# Constante de módulo para evitar reconstrucción en cada llamada a analyze().
+# ---------------------------------------------------------------------------
+_SHORT_PROMPT_HINTS: dict[str, tuple[str, str]] = {
+    "text": (
+        "¿Para quién es la respuesta? ¿Qué formato esperas (lista, tabla, párrafo)? ¿Qué longitud máxima?",
+        "Who is the answer for? What format do you expect (list, table, paragraph)? What maximum length?",
+    ),
+    "code": (
+        "Añade: lenguaje de programación, qué debe hacer la función, inputs y outputs esperados.",
+        "Add: programming language, what the function should do, expected inputs and outputs.",
+    ),
+    "image": (
+        "Añade: sujeto principal, estilo visual (fotorrealista, ilustración…) y relación de aspecto.",
+        "Add: main subject, visual style (photorealistic, illustration…) and aspect ratio.",
+    ),
+    "pdf": (
+        "Añade: audiencia objetivo, número de páginas aproximado y secciones esperadas.",
+        "Add: target audience, approximate page count and expected sections.",
+    ),
+    "artifact": (
+        "Añade: tipo de archivo (CSV, JSON…), columnas/campos esperados y un ejemplo de fila.",
+        "Add: file type (CSV, JSON…), expected columns/fields and a sample row.",
+    ),
+}
+
+# ---------------------------------------------------------------------------
 # Restricción de longitud de salida (Green Prompting — Sección 5)
 # ---------------------------------------------------------------------------
 
@@ -316,7 +343,7 @@ _IMAGE_STYLE_CONFLICT_RE = re.compile(
     r".*?(?:cartoon|anime|ilustracion|illustration|abstracto\b|abstract\b|pixel art|vector\b|flat design)"
     r"|(?:cartoon|anime|ilustracion|illustration|abstracto\b|abstract\b|pixel art|vector\b|flat design)"
     r".*?(?:fotorrealista|photorealistic|realista\b|realistic\b|hiperrealista|hyperrealistic)",
-    re.DOTALL | re.IGNORECASE,
+    re.DOTALL,  # IGNORECASE omitted — pattern always applied to normalized (lowercase) text
 )
 
 # Imagen: iluminación / mood — ausencia aumenta la tasa de regeneración.
@@ -367,10 +394,11 @@ _PATTERN_WITHOUT_EXAMPLE_RE = re.compile(
 )
 
 # Presencia de ejemplo concreto inline (detecta si ya hay un bloque de muestra).
+# Aplicar sobre norm (texto normalizado, ya en minúsculas) — IGNORECASE no necesario.
 _EXAMPLE_PRESENT_RE = re.compile(
     r"(input\s*:\s*\S|output\s*:\s*\S|entrada\s*:\s*\S|salida\s*:\s*\S"
     r"|ejemplo\s*:\s*\S|example\s*:\s*\S|\binput\b.*\boutput\b|\bpregunta\b.*\brespuesta\b)",
-    re.DOTALL | re.IGNORECASE,
+    re.DOTALL,
 )
 
 # ---------------------------------------------------------------------------
@@ -737,29 +765,7 @@ def analyze(text: str, lang: Lang = Lang.ES, output_type: str = "text") -> list[
     # aumentando el coste total de la conversación.
     # La sugerencia indica exactamente qué añadir según el tipo de output esperado.
     if len(words) < 10:
-        _short_hints: dict[str, tuple[str, str]] = {
-            "text": (
-                "¿Para quién es la respuesta? ¿Qué formato esperas (lista, tabla, párrafo)? ¿Qué longitud máxima?",
-                "Who is the answer for? What format do you expect (list, table, paragraph)? What maximum length?",
-            ),
-            "code": (
-                "Añade: lenguaje de programación, qué debe hacer la función, inputs y outputs esperados.",
-                "Add: programming language, what the function should do, expected inputs and outputs.",
-            ),
-            "image": (
-                "Añade: sujeto principal, estilo visual (fotorrealista, ilustración…) y relación de aspecto.",
-                "Add: main subject, visual style (photorealistic, illustration…) and aspect ratio.",
-            ),
-            "pdf": (
-                "Añade: audiencia objetivo, número de páginas aproximado y secciones esperadas.",
-                "Add: target audience, approximate page count and expected sections.",
-            ),
-            "artifact": (
-                "Añade: tipo de archivo (CSV, JSON…), columnas/campos esperados y un ejemplo de fila.",
-                "Add: file type (CSV, JSON…), expected columns/fields and a sample row.",
-            ),
-        }
-        hint_es, hint_en = _short_hints.get(output_type, _short_hints["text"])
+        hint_es, hint_en = _SHORT_PROMPT_HINTS.get(output_type, _SHORT_PROMPT_HINTS["text"])
         suggestions.append(Suggestion(
             category="Prompt muy corto" if lang == Lang.ES else "Prompt too short",
             description=(
@@ -1240,7 +1246,7 @@ def analyze(text: str, lang: Lang = Lang.ES, output_type: str = "text") -> list[
     # de input/output, el modelo tiene que inferir el patrón, lo que eleva la tasa de error.
     # Fuente: DAIR.AI Prompt Engineering Guide — few-shot prompting;
     # Min et al. (2022) — los ejemplos concretos son el signal más fuerte para el formato.
-    if _PATTERN_WITHOUT_EXAMPLE_RE.search(norm) and not _EXAMPLE_PRESENT_RE.search(text):
+    if _PATTERN_WITHOUT_EXAMPLE_RE.search(norm) and not _EXAMPLE_PRESENT_RE.search(norm):
         suggestions.append(Suggestion(
             category="Patrón sin ejemplo concreto" if lang == Lang.ES else "Pattern without concrete example",
             description=(
@@ -1251,9 +1257,9 @@ def analyze(text: str, lang: Lang = Lang.ES, output_type: str = "text") -> list[
                 "Adding 1–2 concrete examples guides the model precisely."
             ),
             example=(
-                "Input: 'El gato duerme' → Output: 'The cat sleeps'"
+                "Entrada: 'El gato duerme' → Salida: 'The cat sleeps'"
                 if lang == Lang.ES else
-                "Input: 'El gato duerme' → Output: 'The cat sleeps'"
+                "Input: 'The cat sleeps' → Output: 'Der Kater schläft'"
             ),
             savings_estimate=(
                 "Reduce errores de formato en un 40–60 % según Min et al. (2022)"
@@ -1353,18 +1359,13 @@ def recommend_model(text: str, tokens: int) -> ModelRecommendation:
     # en contextos largos con múltiples bloques de información sin estructura;
     # estos prompts requieren un modelo con mayor ventana de contexto y capacidad
     # de síntesis, lo que apunta a tiers superiores.
-    multi_doc_signals = 0
-    if _MULTI_DOC_TAGS_RE.search(text):
-        multi_doc_signals += 1
-    if text.count("###") >= 2:
-        multi_doc_signals += 1
-    if text.count("---") >= 2:
-        multi_doc_signals += 1
-    if len(re.findall(r"```", text)) >= 4:   # ≥2 bloques de código (apertura + cierre × 2)
-        multi_doc_signals += 1
-    double_newlines = len(re.findall(r"\n\s*\n", text))
-    if double_newlines >= 3:
-        multi_doc_signals += 1
+    multi_doc_signals = (
+        (1 if _MULTI_DOC_TAGS_RE.search(text) else 0)
+        + (1 if text.count("###") >= 2 else 0)
+        + (1 if text.count("---") >= 2 else 0)
+        + (1 if text.count("```") >= 4 else 0)   # ≥2 code blocks (open + close × 2)
+        + (1 if len(re.findall(r"\n\s*\n", text)) >= 3 else 0)
+    )
     if multi_doc_signals >= 2:
         score += 2
         signals.append("contexto multi-documento")
