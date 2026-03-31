@@ -306,6 +306,107 @@ _DOC_STRUCTURE_RE = re.compile(
     r"|apartados?|indice|table of contents|resumen ejecutivo|executive summary)\b"
 )
 
+# ---------------------------------------------------------------------------
+# Imagen: estilos contradictorios (fotorrealista + cartoon/anime, etc.)
+# Los modelos de imagen tienen dificultad para combinar estilos opuestos;
+# el resultado suele requerir múltiples regeneraciones.
+# ---------------------------------------------------------------------------
+_IMAGE_STYLE_CONFLICT_RE = re.compile(
+    r"(?:fotorrealista|photorealistic|realista\b|realistic\b|hiperrealista|hyperrealistic)"
+    r".*?(?:cartoon|anime|ilustracion|illustration|abstracto\b|abstract\b|pixel art|vector\b|flat design)"
+    r"|(?:cartoon|anime|ilustracion|illustration|abstracto\b|abstract\b|pixel art|vector\b|flat design)"
+    r".*?(?:fotorrealista|photorealistic|realista\b|realistic\b|hiperrealista|hyperrealistic)",
+    re.DOTALL | re.IGNORECASE,
+)
+
+# Imagen: iluminación / mood — ausencia aumenta la tasa de regeneración.
+# Los modelos de imagen responden fuertemente a señales de iluminación.
+_IMAGE_LIGHTING_RE = re.compile(
+    r"\b(golden hour|studio lighting|dramatic shadows?|soft light|hard light"
+    r"|backlit|silhouette|natural light|neon light|cinematic lighting|rim light"
+    r"|volumetric light|sombras dramaticas|iluminacion de estudio|hora dorada"
+    r"|contraluz|luz suave|luz natural|ambiente oscuro|atmosfera|mood\b|lighting\b"
+    r"|high.?key|low.?key|chiaroscuro|diffused light|spotlight)\b"
+)
+
+# ---------------------------------------------------------------------------
+# Código: lenguaje de programación especificado en el prompt.
+# Fuente: Anthropic Prompt Engineering Guide (2024) — especificidad.
+# ---------------------------------------------------------------------------
+_CODE_LANGUAGE_RE = re.compile(
+    r"\b(python|javascript|typescript|java\b|c\+\+|csharp|c#\b|golang|go\b|rust\b"
+    r"|php\b|ruby\b|swift\b|kotlin|scala|bash\b|shell\b|sql\b|html\b|css\b"
+    r"|dart\b|lua\b|haskell|elixir|clojure|r\b|matlab|perl)\b"
+)
+
+# Código: presencia de tests / docstrings / documentación mencionada.
+_CODE_TESTS_RE = re.compile(
+    r"\b(test\b|tests\b|testing|docstring|docstrings|documentacion|documentation"
+    r"|comentarios|comments\b|type hints|type annotations|assertions|assert\b"
+    r"|unit test|prueba unitaria|cobertura|coverage)\b"
+)
+
+# Código: múltiples verbos de acción que indican sobrecarga de tarea.
+# Fuente: Anthropic Prompt Engineering Guide (2024) — prompt chaining para tareas complejas.
+_CODE_MULTI_VERB_RE = re.compile(
+    r"\b(ademas\b|tambien\b|y tambien|adicionalmente|also\b|additionally"
+    r"|furthermore|moreover|and also|as well as|on top of that|y ademas"
+    r"|igualmente|asimismo|de igual (manera|forma)|likewise)\b"
+)
+
+# ---------------------------------------------------------------------------
+# Few-shot: el prompt describe un patrón/formato esperado pero NO incluye ejemplo.
+# Fuente: DAIR.AI Prompt Engineering Guide — few-shot prompting.
+# ---------------------------------------------------------------------------
+_PATTERN_WITHOUT_EXAMPLE_RE = re.compile(
+    r"\b(como este ejemplo|en el mismo formato que|siguiendo este patron"
+    r"|similar a esto|como el siguiente|del mismo estilo que"
+    r"|like this example|in the same format as|following this pattern"
+    r"|same style as|similar to this|in the same style|as in the example"
+    r"|matching this format|as shown below|igual que el ejemplo)\b"
+)
+
+# Presencia de ejemplo concreto inline (detecta si ya hay un bloque de muestra).
+_EXAMPLE_PRESENT_RE = re.compile(
+    r"(input\s*:\s*\S|output\s*:\s*\S|entrada\s*:\s*\S|salida\s*:\s*\S"
+    r"|ejemplo\s*:\s*\S|example\s*:\s*\S|\binput\b.*\boutput\b|\bpregunta\b.*\brespuesta\b)",
+    re.DOTALL | re.IGNORECASE,
+)
+
+# ---------------------------------------------------------------------------
+# Chain-of-thought: indicación explícita de razonamiento paso a paso ya presente.
+# Fuente: Anthropic Prompt Engineering Guide (2024) — extended thinking;
+# OpenAI Best Practices (2024) — chain-of-thought prompting.
+# ---------------------------------------------------------------------------
+_COT_PRESENT_RE = re.compile(
+    r"\b(paso a paso|step by step|think step|piensa antes|razona antes"
+    r"|razona primero|think before|reason through|let'?s think"
+    r"|pensemos|primero analiza|first analyze|think it through"
+    r"|before (answering|responding)|antes de responder|piensa en voz alta"
+    r"|show (your|the) (reasoning|work|steps)|muestra tu razonamiento)\b"
+)
+
+# ---------------------------------------------------------------------------
+# Multi-documento: señales de contexto extenso o estructurado en múltiples bloques.
+# Fuente: Liu et al. (2023) "Lost in the Middle" — degradación en contextos largos.
+# ---------------------------------------------------------------------------
+_MULTI_DOC_TAGS_RE = re.compile(
+    r"<document\b|<context\b|<doc\b|<texto\b|<article\b",
+    re.IGNORECASE,
+)
+
+# ---------------------------------------------------------------------------
+# Positive aspects: XML tags estructurales y ejemplos concretos inline.
+# Fuente: Anthropic Prompt Engineering Guide (2024) — XML structuring;
+# DAIR.AI Prompt Engineering Guide — few-shot prompting.
+# ---------------------------------------------------------------------------
+_XML_STRUCTURAL_TAGS_RE = re.compile(
+    r"<[a-zA-Z][a-zA-Z0-9_-]*>[\s\S]*?</[a-zA-Z][a-zA-Z0-9_-]*>"
+)
+_INLINE_EXAMPLE_RE = re.compile(
+    r"\b(por ejemplo\s*:|for example\s*:|e\.g\.\s*:)",
+    re.IGNORECASE,
+)
 
 # ---------------------------------------------------------------------------
 # Consultas personales genéricas — marcadores de primera persona y dominios
@@ -630,15 +731,47 @@ def analyze(text: str, lang: Lang = Lang.ES, output_type: str = "text") -> list[
             source='Min et al. (2022) "Rethinking the Role of Demonstrations"; Zhao et al. (2021) "Calibrate Before Use"',
         ))
 
-    # 6. Prompt muy corto
+    # 6. Prompt muy corto — sugerencia específica por tipo de output
     # Heurística establecida en guías de prompt engineering: prompts sin contexto
     # suficiente producen respuestas genéricas que requieren turnos de aclaración,
     # aumentando el coste total de la conversación.
+    # La sugerencia indica exactamente qué añadir según el tipo de output esperado.
     if len(words) < 10:
+        _short_hints: dict[str, tuple[str, str]] = {
+            "text": (
+                "¿Para quién es la respuesta? ¿Qué formato esperas (lista, tabla, párrafo)? ¿Qué longitud máxima?",
+                "Who is the answer for? What format do you expect (list, table, paragraph)? What maximum length?",
+            ),
+            "code": (
+                "Añade: lenguaje de programación, qué debe hacer la función, inputs y outputs esperados.",
+                "Add: programming language, what the function should do, expected inputs and outputs.",
+            ),
+            "image": (
+                "Añade: sujeto principal, estilo visual (fotorrealista, ilustración…) y relación de aspecto.",
+                "Add: main subject, visual style (photorealistic, illustration…) and aspect ratio.",
+            ),
+            "pdf": (
+                "Añade: audiencia objetivo, número de páginas aproximado y secciones esperadas.",
+                "Add: target audience, approximate page count and expected sections.",
+            ),
+            "artifact": (
+                "Añade: tipo de archivo (CSV, JSON…), columnas/campos esperados y un ejemplo de fila.",
+                "Add: file type (CSV, JSON…), expected columns/fields and a sample row.",
+            ),
+        }
+        hint_es, hint_en = _short_hints.get(output_type, _short_hints["text"])
         suggestions.append(Suggestion(
-            category="Prompt muy corto",
-            description="Un prompt muy breve puede generar respuestas genéricas que requieren más turnos de conversación. Añade contexto mínimo: rol, tarea, formato.",
-            savings_estimate="Puede evitar 2–3 rondas extra de preguntas",
+            category="Prompt muy corto" if lang == Lang.ES else "Prompt too short",
+            description=(
+                f"Un prompt muy breve genera respuestas genéricas que requieren más turnos. {hint_es}"
+                if lang == Lang.ES else
+                f"A very short prompt generates generic responses that require more turns. {hint_en}"
+            ),
+            savings_estimate=(
+                "Puede evitar 2–3 rondas extra de preguntas"
+                if lang == Lang.ES else
+                "Can avoid 2–3 extra clarification rounds"
+            ),
             source="OpenAI Best Practices (2024); Anthropic Prompt Engineering Guide (2024)",
         ))
 
@@ -857,6 +990,87 @@ def analyze(text: str, lang: Lang = Lang.ES, output_type: str = "text") -> list[
                 source="Stable Diffusion / DALL·E best practices; Luccioni et al. (2023)",
             ))
 
+        # 13b. Estilos visuales contradictorios
+        # Combinar referencias estilísticas opuestas (fotorrealismo + cartoon) exige
+        # varias regeneraciones porque el modelo no puede satisfacer ambas a la vez.
+        if _IMAGE_STYLE_CONFLICT_RE.search(norm):
+            suggestions.append(Suggestion(
+                category="Estilos contradictorios" if lang == Lang.ES else "Contradictory styles",
+                description=(
+                    "El prompt combina estilos visuales incompatibles (p. ej. fotorrealista + cartoon). "
+                    "Los modelos de imagen no pueden satisfacer ambos a la vez; elige un solo estilo."
+                    if lang == Lang.ES else
+                    "The prompt mixes incompatible visual styles (e.g. photorealistic + cartoon). "
+                    "Image models cannot satisfy both at once; choose a single style."
+                ),
+                example=(
+                    '"estilo fotorrealista, iluminación cinematográfica" (un solo estilo coherente)'
+                    if lang == Lang.ES else
+                    '"photorealistic style, cinematic lighting" (one consistent style)'
+                ),
+                savings_estimate=(
+                    "Evita 2–4 regeneraciones por ambigüedad estilística"
+                    if lang == Lang.ES else
+                    "Avoids 2–4 regenerations due to style ambiguity"
+                ),
+                source="Buenas prácticas de prompt engineering para modelos imagen (DALL·E, Stable Diffusion, Flux)",
+            ))
+
+        # 13c. Prompt de imagen excesivamente largo (>80 palabras)
+        # Los modelos de imagen ponderan más los primeros tokens del prompt;
+        # el contenido al final del prompt recibe menos atención.
+        # Referencia: arquitectura de atención en modelos de difusión (CLIP encoder).
+        if len(words) > 80:
+            suggestions.append(Suggestion(
+                category="Prompt de imagen demasiado largo" if lang == Lang.ES else "Image prompt too long",
+                description=(
+                    "Los modelos de imagen leen los primeros tokens con mayor peso. "
+                    "Con más de 80 palabras, los elementos del final pueden ignorarse. "
+                    "Mueve el sujeto principal y el estilo al principio."
+                    if lang == Lang.ES else
+                    "Image models weight the first tokens more heavily. "
+                    "With more than 80 words, elements at the end may be ignored. "
+                    "Move the main subject and style to the beginning."
+                ),
+                example=(
+                    '"[sujeto], [estilo], [iluminación], [detalles secundarios]" — orden de prioridad'
+                    if lang == Lang.ES else
+                    '"[subject], [style], [lighting], [secondary details]" — priority order'
+                ),
+                savings_estimate=(
+                    "Reduce regeneraciones por elementos ignorados al final"
+                    if lang == Lang.ES else
+                    "Reduces regenerations caused by elements ignored at the end"
+                ),
+                source="CLIP token weighting — arquitectura de modelos de difusión (DALL·E, Stable Diffusion)",
+            ))
+
+        # 13d. Sin indicación de iluminación / mood
+        # La iluminación es uno de los parámetros con mayor impacto visual en modelos
+        # de imagen. Su ausencia produce resultados planos que suelen requerir ajuste.
+        if not _IMAGE_LIGHTING_RE.search(norm):
+            suggestions.append(Suggestion(
+                category="Sin indicación de iluminación" if lang == Lang.ES else "No lighting specified",
+                description=(
+                    "La iluminación determina el mood de la imagen. Sin especificarla, "
+                    "el modelo elige una iluminación neutra que puede no encajar con tu visión."
+                    if lang == Lang.ES else
+                    "Lighting determines the image mood. Without specifying it, "
+                    "the model defaults to neutral lighting that may not match your vision."
+                ),
+                example=(
+                    '"golden hour" / "studio lighting" / "dramatic shadows" / "soft natural light"'
+                    if lang == Lang.ES else
+                    '"golden hour" / "studio lighting" / "dramatic shadows" / "soft natural light"'
+                ),
+                savings_estimate=(
+                    "Evita iteraciones para ajustar el ambiente visual"
+                    if lang == Lang.ES else
+                    "Avoids iterations to fix the visual atmosphere"
+                ),
+                source="Buenas prácticas de prompt engineering para modelos imagen (DALL·E, Stable Diffusion, Flux)",
+            ))
+
     # 14. Output = documento/PDF
     elif output_type == "pdf":
         if not _DOC_STRUCTURE_RE.search(norm):
@@ -908,6 +1122,87 @@ def analyze(text: str, lang: Lang = Lang.ES, output_type: str = "text") -> list[
                 source="Principio de especificidad — Anthropic Prompt Engineering Guide (2024)",
             ))
 
+    # 16. Output = código — sugerencias específicas para prompts de programación
+    # Fuente: Anthropic Prompt Engineering Guide (2024) — especificidad en tareas de código;
+    # prompt chaining para tareas complejas con múltiples funcionalidades.
+    elif output_type == "code":
+        # 16a. Lenguaje no especificado
+        if not _CODE_LANGUAGE_RE.search(norm):
+            suggestions.append(Suggestion(
+                category="Lenguaje de programación no indicado" if lang == Lang.ES else "Programming language not specified",
+                description=(
+                    "Sin especificar el lenguaje, el modelo elige por defecto (normalmente Python). "
+                    "Indicarlo evita regeneraciones por lenguaje incorrecto."
+                    if lang == Lang.ES else
+                    "Without a language, the model defaults (usually Python). "
+                    "Specifying it avoids regenerations due to the wrong language."
+                ),
+                example=(
+                    '"Escribe en TypeScript una función que…" / "Genera código Python para…"'
+                    if lang == Lang.ES else
+                    '"Write a TypeScript function that…" / "Generate Python code to…"'
+                ),
+                savings_estimate=(
+                    "Evita 1–2 regeneraciones por lenguaje incorrecto"
+                    if lang == Lang.ES else
+                    "Avoids 1–2 regenerations for the wrong language"
+                ),
+                source="Anthropic Prompt Engineering Guide (2024) — especificidad en tareas de código",
+            ))
+
+        # 16b. Tests y docstrings no mencionados
+        if not _CODE_TESTS_RE.search(norm):
+            suggestions.append(Suggestion(
+                category="Tests y documentación no especificados" if lang == Lang.ES else "Tests and docs not specified",
+                description=(
+                    "No se indica si quieres tests unitarios, docstrings o type hints. "
+                    "Aclararlo evita una segunda petición para añadir documentación o cobertura."
+                    if lang == Lang.ES else
+                    "It's not clear whether you want unit tests, docstrings or type hints. "
+                    "Specifying this avoids a second request to add documentation or coverage."
+                ),
+                example=(
+                    '"…con docstring, type hints y tests unitarios con pytest"'
+                    if lang == Lang.ES else
+                    '"…with docstring, type hints and unit tests using pytest"'
+                ),
+                savings_estimate=(
+                    "Evita 1 turno extra para solicitar tests o documentación"
+                    if lang == Lang.ES else
+                    "Avoids 1 extra turn to request tests or documentation"
+                ),
+                source="Anthropic Prompt Engineering Guide (2024) — especificidad; OpenAI Best Practices (2024)",
+            ))
+
+        # 16c. Múltiples funcionalidades en un solo prompt → prompt chaining
+        # Detectar ≥3 señales de verbos de acción/adición sugiere que la tarea
+        # podría beneficiarse de ser dividida en pasos secuenciales.
+        multi_verb_count = len(_CODE_MULTI_VERB_RE.findall(norm))
+        if multi_verb_count >= 2:
+            suggestions.append(Suggestion(
+                category="Tarea de código demasiado amplia" if lang == Lang.ES else "Code task too broad",
+                description=(
+                    f"Se detectaron {multi_verb_count + 1} funcionalidades mezcladas en un solo prompt. "
+                    "Dividir la tarea en prompts secuenciales (prompt chaining) produce código más limpio "
+                    "y es más fácil de depurar."
+                    if lang == Lang.ES else
+                    f"{multi_verb_count + 1} mixed functionalities detected in a single prompt. "
+                    "Splitting into sequential prompts (prompt chaining) produces cleaner code "
+                    "and is easier to debug."
+                ),
+                example=(
+                    "1) Crea la función base → 2) Añade validación → 3) Escribe los tests"
+                    if lang == Lang.ES else
+                    "1) Create the base function → 2) Add validation → 3) Write the tests"
+                ),
+                savings_estimate=(
+                    "Reduce errores de implementación y rondas de corrección"
+                    if lang == Lang.ES else
+                    "Reduces implementation errors and correction rounds"
+                ),
+                source="Anthropic Prompt Engineering Guide (2024) — prompt chaining para tareas complejas",
+            ))
+
     # 9. Consulta personal genérica sin contexto suficiente
     # En primera persona sobre salud, finanzas, legal, etc., sin datos personales,
     # los modelos generan respuestas genéricas que requieren turnos extra de aclaración.
@@ -939,6 +1234,65 @@ def analyze(text: str, lang: Lang = Lang.ES, output_type: str = "text") -> list[
                     source="Principio de especificidad contextual — Anthropic Prompt Engineering Guide (2024)",
                 ))
                 break  # una sugerencia máxima de este tipo por prompt
+
+    # 17. Few-shot: patrón descrito sin ejemplo concreto
+    # Si el prompt referencia un patrón o formato esperado pero no incluye un ejemplo
+    # de input/output, el modelo tiene que inferir el patrón, lo que eleva la tasa de error.
+    # Fuente: DAIR.AI Prompt Engineering Guide — few-shot prompting;
+    # Min et al. (2022) — los ejemplos concretos son el signal más fuerte para el formato.
+    if _PATTERN_WITHOUT_EXAMPLE_RE.search(norm) and not _EXAMPLE_PRESENT_RE.search(text):
+        suggestions.append(Suggestion(
+            category="Patrón sin ejemplo concreto" if lang == Lang.ES else "Pattern without concrete example",
+            description=(
+                "El prompt describe un patrón o formato pero no incluye un ejemplo de input/output. "
+                "Añadir 1–2 ejemplos concretos guía al modelo con precisión."
+                if lang == Lang.ES else
+                "The prompt describes a pattern or format but includes no input/output example. "
+                "Adding 1–2 concrete examples guides the model precisely."
+            ),
+            example=(
+                "Input: 'El gato duerme' → Output: 'The cat sleeps'"
+                if lang == Lang.ES else
+                "Input: 'El gato duerme' → Output: 'The cat sleeps'"
+            ),
+            savings_estimate=(
+                "Reduce errores de formato en un 40–60 % según Min et al. (2022)"
+                if lang == Lang.ES else
+                "Reduces format errors by 40–60% according to Min et al. (2022)"
+            ),
+            source="DAIR.AI Prompt Engineering Guide — few-shot prompting; Min et al. (2022)",
+        ))
+
+    # 18. Chain-of-thought: tarea de razonamiento sin indicación de paso a paso
+    # En tareas analíticas complejas, pedir al modelo que razone explícitamente antes
+    # de responder reduce errores sin coste significativo de tokens de input.
+    # Fuente: Anthropic Prompt Engineering Guide (2024) — extended thinking;
+    # OpenAI Best Practices (2024) — chain-of-thought prompting.
+    if _REASONING.search(norm) and not _COT_PRESENT_RE.search(norm):
+        suggestions.append(Suggestion(
+            category="Sin indicación de razonamiento explícito" if lang == Lang.ES else "No explicit reasoning instruction",
+            description=(
+                "El prompt requiere razonamiento complejo pero no pide al modelo que piense paso a paso. "
+                "Añadir esta instrucción reduce errores analíticos sin coste relevante de tokens."
+                if lang == Lang.ES else
+                "The prompt requires complex reasoning but doesn't ask the model to think step by step. "
+                "Adding this instruction reduces analytical errors without significant token cost."
+            ),
+            example=(
+                '"Piensa paso a paso antes de responder." / "Razona en voz alta y luego da la conclusión."'
+                if lang == Lang.ES else
+                '"Think step by step before answering." / "Reason through it, then give your conclusion."'
+            ),
+            savings_estimate=(
+                "Reduce errores en tareas de razonamiento; coste: ~5–10 tokens extra de input"
+                if lang == Lang.ES else
+                "Reduces reasoning errors; cost: ~5–10 extra input tokens"
+            ),
+            source=(
+                "Anthropic Prompt Engineering Guide (2024) — extended thinking; "
+                "OpenAI Best Practices (2024) — chain-of-thought prompting"
+            ),
+        ))
 
     return suggestions
 
@@ -993,6 +1347,27 @@ def recommend_model(text: str, tokens: int) -> ModelRecommendation:
     if constraint_count >= 3:
         score += 1
         signals.append(f"{constraint_count} restricciones detectadas")
+
+    # Señal de contexto multi-documento
+    # Liu et al. (2023) "Lost in the Middle" demuestra degradación del rendimiento
+    # en contextos largos con múltiples bloques de información sin estructura;
+    # estos prompts requieren un modelo con mayor ventana de contexto y capacidad
+    # de síntesis, lo que apunta a tiers superiores.
+    multi_doc_signals = 0
+    if _MULTI_DOC_TAGS_RE.search(text):
+        multi_doc_signals += 1
+    if text.count("###") >= 2:
+        multi_doc_signals += 1
+    if text.count("---") >= 2:
+        multi_doc_signals += 1
+    if len(re.findall(r"```", text)) >= 4:   # ≥2 bloques de código (apertura + cierre × 2)
+        multi_doc_signals += 1
+    double_newlines = len(re.findall(r"\n\s*\n", text))
+    if double_newlines >= 3:
+        multi_doc_signals += 1
+    if multi_doc_signals >= 2:
+        score += 2
+        signals.append("contexto multi-documento")
 
     if (_ES_SIMPLE.search(norm.lstrip()) or _EN_SIMPLE.search(norm.lstrip())) and tokens < 50:
         score -= 2
@@ -1061,6 +1436,24 @@ def positive_aspects(text: str, lang: Lang = Lang.ES) -> list[str]:
 
     if 15 <= len(words) <= 200:
         aspects.append("Longitud apropiada — ni demasiado vaga ni innecesariamente larga")
+
+    # XML tags estructurales → Claude los procesa con mayor precisión que texto plano.
+    # Fuente: Anthropic Prompt Engineering Guide (2024) — XML structuring.
+    if _XML_STRUCTURAL_TAGS_RE.search(text):
+        aspects.append(
+            "Usa XML tags para estructurar el prompt → Claude los procesa con mayor precisión"
+            if lang == Lang.ES else
+            "Uses XML tags to structure the prompt → Claude processes them with higher precision"
+        )
+
+    # Ejemplos concretos inline (por ejemplo: / for example: seguido de contenido).
+    # Fuente: DAIR.AI Prompt Engineering Guide — few-shot prompting.
+    if _INLINE_EXAMPLE_RE.search(text):
+        aspects.append(
+            "Incluye ejemplos concretos → guía al modelo hacia el formato esperado"
+            if lang == Lang.ES else
+            "Includes concrete examples → guides the model toward the expected format"
+        )
 
     return aspects
 
