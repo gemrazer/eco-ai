@@ -1307,7 +1307,7 @@ def analyze(text: str, lang: Lang = Lang.ES, output_type: str = "text") -> list[
 # Recomendación de modelo
 # ---------------------------------------------------------------------------
 
-def recommend_model(text: str, tokens: int) -> ModelRecommendation:
+def recommend_model(text: str, tokens: int, lang: Lang = Lang.ES) -> ModelRecommendation:
     """
     Recomienda el tier de modelo más adecuado analizando la complejidad del prompt.
 
@@ -1318,32 +1318,47 @@ def recommend_model(text: str, tokens: int) -> ModelRecommendation:
     score = 0
     signals: list[str] = []
     norm = _normalize_for_match(text)
+    es = lang == Lang.ES
 
     if tokens > 500:
         score += 3
-        signals.append(f"prompt extenso ({tokens} tokens)")
+        signals.append(
+            f"prompt extenso ({tokens} tokens)" if es else f"long prompt ({tokens} tokens)"
+        )
     elif tokens > 150:
         score += 1
 
     if _COMPLEX_SCIENTIFIC.search(norm):
         score += 3
-        signals.append("contenido científico o académico")
+        signals.append(
+            "contenido científico o académico" if es else "scientific or academic content"
+        )
 
     if _COMPLEX_CODE.search(norm):
         score += 2
-        signals.append("ingeniería de software avanzada")
+        signals.append(
+            "ingeniería de software avanzada" if es else "advanced software engineering"
+        )
 
     if _COMPLEX_DOMAIN.search(norm):
         score += 2
-        signals.append("dominio especializado (legal / médico / financiero)")
+        signals.append(
+            "dominio especializado (legal / médico / financiero)" if es
+            else "specialised domain (legal / medical / financial)"
+        )
 
     if _CODE_GENERAL.search(norm):
         score += 1
-        signals.append("tarea de programación o sistemas")
+        signals.append(
+            "tarea de programación o sistemas" if es else "programming or systems task"
+        )
 
     if _REASONING.search(norm):
         score += 1
-        signals.append("requiere análisis o razonamiento comparativo")
+        signals.append(
+            "requiere análisis o razonamiento comparativo" if es
+            else "requires analysis or comparative reasoning"
+        )
 
     constraint_count = len(re.findall(
         r"\b(debe|tiene que|es necesario|obligatorio|sin que|nunca|siempre|asegurate|asegurese"
@@ -1352,7 +1367,10 @@ def recommend_model(text: str, tokens: int) -> ModelRecommendation:
     ))
     if constraint_count >= 3:
         score += 1
-        signals.append(f"{constraint_count} restricciones detectadas")
+        signals.append(
+            f"{constraint_count} restricciones detectadas" if es
+            else f"{constraint_count} constraints detected"
+        )
 
     # Señal de contexto multi-documento
     # Liu et al. (2023) "Lost in the Middle" demuestra degradación del rendimiento
@@ -1368,39 +1386,50 @@ def recommend_model(text: str, tokens: int) -> ModelRecommendation:
     )
     if multi_doc_signals >= 2:
         score += 2
-        signals.append("contexto multi-documento")
+        signals.append(
+            "contexto multi-documento" if es else "multi-document context"
+        )
 
     if (_ES_SIMPLE.search(norm.lstrip()) or _EN_SIMPLE.search(norm.lstrip())) and tokens < 50:
         score -= 2
-        signals.append("tarea simple y directa")
+        signals.append("tarea simple y directa" if es else "simple and direct task")
 
     if score >= 4:
         return ModelRecommendation(
             tier="large",
-            headline="Modelo grande (Opus)",
+            headline="Modelo grande (Opus)" if es else "Large model (Opus)",
             reason=(
                 "El prompt requiere razonamiento profundo, conocimiento especializado "
                 "o manejo de contexto extenso. Un modelo pequeño podría dar respuestas "
                 "superficiales o incorrectas."
+                if es else
+                "The prompt requires deep reasoning, specialised knowledge or "
+                "extensive context handling. A smaller model may give shallow or incorrect answers."
             ),
             signals=signals,
         )
     if score >= 1:
         return ModelRecommendation(
             tier="medium",
-            headline="Modelo medio (Sonnet)",
+            headline="Modelo medio (Sonnet)" if es else "Medium model (Sonnet)",
             reason=(
                 "La tarea tiene complejidad moderada. Sonnet ofrece el mejor equilibrio "
                 "entre calidad y coste para este tipo de prompt."
+                if es else
+                "The task has moderate complexity. Sonnet offers the best balance "
+                "of quality and cost for this type of prompt."
             ),
             signals=signals,
         )
     return ModelRecommendation(
         tier="small",
-        headline="Modelo pequeño (Haiku / mini)",
+        headline="Modelo pequeño (Haiku / mini)" if es else "Small model (Haiku / mini)",
         reason=(
             "La tarea es directa y no requiere razonamiento complejo. "
             "Usando Haiku o GPT-4o mini ahorrarás hasta 10× en coste con resultados equivalentes."
+            if es else
+            "The task is straightforward and requires no complex reasoning. "
+            "Using Haiku or GPT-4o mini saves up to 10× in cost with equivalent results."
         ),
         signals=signals,
     )
@@ -1420,23 +1449,47 @@ def positive_aspects(text: str, lang: Lang = Lang.ES) -> list[str]:
     norm = _normalize_for_match(text)
 
     if _FORMAT_SPECIFIED.search(norm):
-        aspects.append("Especifica el formato de salida → reduce tokens de respuesta un 10–30 %")
+        aspects.append(
+            "Especifica el formato de salida → reduce tokens de respuesta un 10–30 %"
+            if lang == Lang.ES else
+            "Specifies output format → reduces response tokens by 10–30 %"
+        )
 
     if _ROLE_DEFINED.search(norm):
-        aspects.append("Define el rol del modelo → mejora precisión en tareas especializadas")
+        aspects.append(
+            "Define el rol del modelo → mejora precisión en tareas especializadas"
+            if lang == Lang.ES else
+            "Defines the model role → improves precision on specialised tasks"
+        )
 
     if _DIRECT_START.search(norm.lstrip()):
-        aspects.append("Empieza con un verbo de acción → instrucción directa y sin ambigüedad")
+        aspects.append(
+            "Empieza con un verbo de acción → instrucción directa y sin ambigüedad"
+            if lang == Lang.ES else
+            "Starts with an action verb → direct and unambiguous instruction"
+        )
 
     if "\n" in text and any(c in text for c in ["-", "*", "###", "1."]):
-        aspects.append("Usa estructura con secciones o viñetas → más fácil de procesar")
+        aspects.append(
+            "Usa estructura con secciones o viñetas → más fácil de procesar"
+            if lang == Lang.ES else
+            "Uses structure with sections or bullets → easier to process"
+        )
 
     filler_re = _ES_FILLER if lang == Lang.ES else _EN_FILLER
     if not filler_re.search(norm):
-        aspects.append("Sin frases de cortesía innecesarias → tokens bien aprovechados")
+        aspects.append(
+            "Sin frases de cortesía innecesarias → tokens bien aprovechados"
+            if lang == Lang.ES else
+            "No unnecessary courtesy phrases → tokens well used"
+        )
 
     if 15 <= len(words) <= 200:
-        aspects.append("Longitud apropiada — ni demasiado vaga ni innecesariamente larga")
+        aspects.append(
+            "Longitud apropiada — ni demasiado vaga ni innecesariamente larga"
+            if lang == Lang.ES else
+            "Appropriate length — neither too vague nor unnecessarily long"
+        )
 
     # XML tags estructurales → Claude los procesa con mayor precisión que texto plano.
     # Fuente: Anthropic Prompt Engineering Guide (2024) — XML structuring.
