@@ -688,13 +688,19 @@ def analyze(text: str, lang: Lang = Lang.ES, output_type: str = "text") -> list[
     # resultados equivalentes o mejores con menos tokens.
     if filler_re.search(norm):
         suggestions.append(Suggestion(
-            category="Frases de cortesía",
-            description="Los modelos no necesitan cortesías — eliminan tokens sin aportar contexto.",
+            category="Frases de cortesía" if lang == Lang.ES else "Courtesy phrases",
+            description=(
+                "Los modelos no necesitan cortesías — eliminan tokens sin aportar contexto."
+                if lang == Lang.ES else
+                "Models don't need courtesy phrases — they burn tokens without adding context."
+            ),
             example=(
                 '"Por favor, ¿podrías explicarme…?" → "Explica…"' if lang == Lang.ES
                 else '"Could you please explain…?" → "Explain…"'
             ),
-            savings_estimate="~5–15% menos tokens",
+            savings_estimate=(
+                "~5–15% menos tokens" if lang == Lang.ES else "~5–15% fewer tokens"
+            ),
             source="Anthropic Prompt Engineering Guide (2024)",
         ))
 
@@ -712,9 +718,15 @@ def analyze(text: str, lang: Lang = Lang.ES, output_type: str = "text") -> list[
                 seen.add(norm_s)
         if duplicate_count > 0:
             suggestions.append(Suggestion(
-                category="Frases repetidas",
-                description=f"Se detectaron {duplicate_count} frases con contenido muy similar. Consolida la idea en una sola vez.",
-                savings_estimate="~5–20% menos tokens",
+                category="Frases repetidas" if lang == Lang.ES else "Repeated sentences",
+                description=(
+                    f"Se detectaron {duplicate_count} frases con contenido muy similar. Consolida la idea en una sola vez."
+                    if lang == Lang.ES else
+                    f"{duplicate_count} sentences with very similar content detected. Consolidate the idea into one."
+                ),
+                savings_estimate=(
+                    "~5–20% menos tokens" if lang == Lang.ES else "~5–20% fewer tokens"
+                ),
                 source="Principio de economía de tokens (medición directa)",
             ))
 
@@ -724,13 +736,19 @@ def analyze(text: str, lang: Lang = Lang.ES, output_type: str = "text") -> list[
     for pat in intro_pats:
         if pat.search(norm):
             suggestions.append(Suggestion(
-                category="Introducción innecesaria",
-                description="Salta directo a la instrucción — el modelo no necesita saludos ni presentaciones.",
+                category="Introducción innecesaria" if lang == Lang.ES else "Unnecessary introduction",
+                description=(
+                    "Salta directo a la instrucción — el modelo no necesita saludos ni presentaciones."
+                    if lang == Lang.ES else
+                    "Go straight to the instruction — the model doesn't need greetings or introductions."
+                ),
                 example=(
                     '"Hola, soy diseñadora y quiero que me ayudes con…" → "Ayúdame con…"' if lang == Lang.ES
                     else '"Hi, I\'m a developer and I was wondering if you could help me with…" → "Help me with…"'
                 ),
-                savings_estimate="~5–10% menos tokens",
+                savings_estimate=(
+                    "~5–10% menos tokens" if lang == Lang.ES else "~5–10% fewer tokens"
+                ),
                 source="Anthropic Prompt Engineering Guide (2024)",
             ))
             break
@@ -740,10 +758,22 @@ def analyze(text: str, lang: Lang = Lang.ES, output_type: str = "text") -> list[
     # la información situada en el centro de contextos largos sin estructura.
     if len(words) > 150 and "\n" not in text and "###" not in text and "-" not in text[:200]:
         suggestions.append(Suggestion(
-            category="Falta de estructura",
-            description="Prompts largos sin formato (viñetas, secciones) suelen ser más verbosos. Separa contexto, tarea y formato esperado.",
-            example="### Contexto\n...\n### Tarea\n...\n### Formato\n...",
-            savings_estimate="Puede reducir el prompt un 20–30% y mejorar la respuesta",
+            category="Falta de estructura" if lang == Lang.ES else "Lacks structure",
+            description=(
+                "Prompts largos sin formato (viñetas, secciones) suelen ser más verbosos. Separa contexto, tarea y formato esperado."
+                if lang == Lang.ES else
+                "Long unformatted prompts tend to be verbose. Separate context, task and expected format."
+            ),
+            example=(
+                "### Contexto\n...\n### Tarea\n...\n### Formato\n..."
+                if lang == Lang.ES else
+                "### Context\n...\n### Task\n...\n### Format\n..."
+            ),
+            savings_estimate=(
+                "Puede reducir el prompt un 20–30% y mejorar la respuesta"
+                if lang == Lang.ES else
+                "Can reduce the prompt by 20–30% and improve the response"
+            ),
             source='Liu et al. (2023) "Lost in the Middle: How LMs Use Long Contexts"',
         ))
 
@@ -753,9 +783,15 @@ def analyze(text: str, lang: Lang = Lang.ES, output_type: str = "text") -> list[
     example_count = len(ex_re.findall(norm))
     if example_count > 3:
         suggestions.append(Suggestion(
-            category="Demasiados ejemplos",
-            description=f"Se encontraron {example_count} referencias a ejemplos. Limita a 1–2 ejemplos concretos; más no mejora la respuesta.",
-            savings_estimate="~10–25% menos tokens",
+            category="Demasiados ejemplos" if lang == Lang.ES else "Too many examples",
+            description=(
+                f"Se encontraron {example_count} referencias a ejemplos. Limita a 1–2 ejemplos concretos; más no mejora la respuesta."
+                if lang == Lang.ES else
+                f"{example_count} example references found. Limit to 1–2 concrete examples; more doesn't improve the response."
+            ),
+            savings_estimate=(
+                "~10–25% menos tokens" if lang == Lang.ES else "~10–25% fewer tokens"
+            ),
             source='Min et al. (2022) "Rethinking the Role of Demonstrations"; Zhao et al. (2021) "Calibrate Before Use"',
         ))
 
@@ -788,13 +824,19 @@ def analyze(text: str, lang: Lang = Lang.ES, output_type: str = "text") -> list[
     vague_found = sum(1 for p in vague_pats if p.search(norm))
     if vague_found >= 2:
         suggestions.append(Suggestion(
-            category="Lenguaje impreciso",
-            description="Expresiones vagas ('más o menos', 'algo así') obligan al modelo a pedir aclaraciones o a asumir. Sé específico.",
+            category="Lenguaje impreciso" if lang == Lang.ES else "Vague language",
+            description=(
+                "Expresiones vagas ('más o menos', 'algo así') obligan al modelo a pedir aclaraciones o a asumir. Sé específico."
+                if lang == Lang.ES else
+                "Vague expressions ('kind of', 'something like') force the model to ask for clarification or guess. Be specific."
+            ),
             example=(
                 '"Quiero algo así como una lista, más o menos" → "Devuelve una lista con viñetas"' if lang == Lang.ES
                 else '"Something like a list, kind of" → "Return a numbered list"'
             ),
-            savings_estimate="Reduce turnos de aclaración",
+            savings_estimate=(
+                "Reduce turnos de aclaración" if lang == Lang.ES else "Reduces clarification turns"
+            ),
             source='Webson & Pavlick (2021) "Do Prompt-Based Models Really Understand the Meaning of Their Prompts?"',
         ))
 
@@ -805,13 +847,19 @@ def analyze(text: str, lang: Lang = Lang.ES, output_type: str = "text") -> list[
     # al formato del prompt; Anthropic reporta reducción de 10–30% en tokens de salida.
     if output_type == "text" and len(words) > 50 and not any(f in norm for f in fmt_words):
         suggestions.append(Suggestion(
-            category="Formato de salida no indicado",
-            description="Especificar el formato evita que el modelo genere texto extra (introducciones, conclusiones innecesarias).",
+            category="Formato de salida no indicado" if lang == Lang.ES else "Output format not specified",
+            description=(
+                "Especificar el formato evita que el modelo genere texto extra (introducciones, conclusiones innecesarias)."
+                if lang == Lang.ES else
+                "Specifying the format prevents the model from generating extra text (unnecessary introductions, conclusions)."
+            ),
             example=(
                 'Añade al final: "Responde en forma de lista numerada, sin introducción."' if lang == Lang.ES
                 else 'Add at the end: "Respond as a numbered list, no introduction."'
             ),
-            savings_estimate="~10–30% menos tokens de salida",
+            savings_estimate=(
+                "~10–30% menos tokens de salida" if lang == Lang.ES else "~10–30% fewer output tokens"
+            ),
             source='Sclar et al. (2023) "Quantifying Sensitivity to Spurious Features in NLP"; Anthropic Prompt Engineering Guide (2024)',
         ))
 
