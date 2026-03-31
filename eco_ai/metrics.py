@@ -8,8 +8,10 @@ Fuentes:
 - IEA Global Energy & CO2 Status 2023 — factor de emisión eléctrica
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
+
+from .config import Lang
 
 
 # --- Constantes de referencia ---
@@ -29,8 +31,9 @@ _TAP_L_PER_S = 5 / 60         # 5 L/min → L/s
 _MIN_SECONDS = 1.0            # umbral mínimo para mostrar la equivalencia
 
 
-def _fmt_seconds(seconds: float, action: str) -> str:
-    """Formatea segundos como '≈ Xs/Xmin/Xh <acción>'."""
+def _fmt_seconds(seconds: float, action_es: str, action_en: str, lang: Lang) -> str:
+    """Formatea segundos como '≈ Xs/Xmin/Xh <acción>' en el idioma indicado."""
+    action = action_es if lang == Lang.ES else action_en
     if seconds < 60:
         return f"≈ {seconds:.0f} s {action}"
     minutes = seconds / 60
@@ -92,6 +95,7 @@ class EcoImpact:
     water_ml: float
     cost_usd: Optional[float]
     model: str
+    lang: Lang = field(default=Lang.ES)
 
     @property
     def co2_equiv(self) -> str:
@@ -99,11 +103,23 @@ class EcoImpact:
         # ~170 g CO₂ = 1 km en coche; ~0.14 g = 1 búsqueda Google (estimación)
         km_car = self.co2_g / 170
         if km_car >= 0.001:
-            return f"≈ {km_car:.4f} km en coche"
+            return (
+                f"≈ {km_car:.4f} km en coche"
+                if self.lang == Lang.ES else
+                f"≈ {km_car:.4f} km by car"
+            )
         searches = self.co2_g / 0.14
         if searches >= 0.01:
-            return f"≈ {searches:.2f} búsquedas en Google"
-        return f"< 0.01 búsquedas en Google"
+            return (
+                f"≈ {searches:.2f} búsquedas en Google"
+                if self.lang == Lang.ES else
+                f"≈ {searches:.2f} Google searches"
+            )
+        return (
+            "< 0.01 búsquedas en Google"
+            if self.lang == Lang.ES else
+            "< 0.01 Google searches"
+        )
 
     @property
     def water_equiv(self) -> str:
@@ -111,7 +127,7 @@ class EcoImpact:
             return f"{self.water_ml/1000:.3f} L"
         if self.water_ml >= 0.01:
             return f"{self.water_ml:.2f} mL"
-        return f"< 0.01 mL"
+        return "< 0.01 mL"
 
     @property
     def energy_time_equiv(self) -> str:
@@ -120,7 +136,7 @@ class EcoImpact:
         seconds = self.energy_kwh / _LED_KW * 3600
         if seconds < _MIN_SECONDS:
             return ""
-        return _fmt_seconds(seconds, "con una bombilla LED encendida")
+        return _fmt_seconds(seconds, "con una bombilla LED encendida", "with an LED bulb on", self.lang)
 
     @property
     def water_time_equiv(self) -> str:
@@ -129,10 +145,10 @@ class EcoImpact:
         seconds = (self.water_ml / 1000) / _TAP_L_PER_S
         if seconds < _MIN_SECONDS:
             return ""
-        return _fmt_seconds(seconds, "con el grifo abierto")
+        return _fmt_seconds(seconds, "con el grifo abierto", "with the tap running", self.lang)
 
 
-def calculate_impact(tokens: int, model: str, output_ratio: float = 0.4) -> EcoImpact:
+def calculate_impact(tokens: int, model: str, output_ratio: float = 0.4, lang: Lang = Lang.ES) -> EcoImpact:
     """
     Estima el impacto ecológico dado el número de tokens de entrada.
 
@@ -160,4 +176,5 @@ def calculate_impact(tokens: int, model: str, output_ratio: float = 0.4) -> EcoI
         water_ml=water_ml,
         cost_usd=cost_usd,
         model=model,
+        lang=lang,
     )

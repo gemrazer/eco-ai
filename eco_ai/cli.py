@@ -349,7 +349,7 @@ def analyze(
     # --- Análisis ---
     console.print()
     tokens = count_tokens(text)
-    impact = calculate_impact(tokens, model, output_ratio)
+    impact = calculate_impact(tokens, model, output_ratio, effective_lang)
 
     impact_title = "Impacto ecológico estimado" if es else "Estimated ecological impact"
     console.print(Panel(
@@ -513,7 +513,7 @@ def compare(
     table.add_column(col_cost, justify="right")
 
     for model in MODELS:
-        impact = calculate_impact(tokens, model, output_ratio)
+        impact = calculate_impact(tokens, model, output_ratio, lang)
         cost_str = f"${impact.cost_usd:.6f}" if impact.cost_usd is not None else "—"
         table.add_row(
             model,
