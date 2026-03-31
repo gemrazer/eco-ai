@@ -175,6 +175,10 @@ def analyze(
                                          help="Idioma del prompt: es (español) o en (inglés). Por defecto usa la config guardada."),
     verbose: bool = typer.Option(False, "--verbose", "-v",
                                   help="Muestra la referencia bibliográfica de cada sugerencia."),
+    output_type: str = typer.Option(
+        "auto", "--output-type", "-t",
+        help="Tipo de output esperado: auto (detecta), text, image, code, pdf, artifact.",
+    ),
 ) -> None:
     """Analiza el impacto ecológico de un prompt y sugiere optimizaciones."""
 
@@ -248,14 +252,27 @@ def analyze(
 
     # Tipo de tarea (siempre visible — afecta al impacto energético)
     task_type, task_label, task_note = detect_task_type(text, effective_lang)
-    _type_color = {"qa": "red", "code": "yellow", "fact": "green", "general": "dim"}.get(task_type, "dim")
+    _type_color = {
+        "qa": "red", "code": "yellow", "fact": "green",
+        "image": "magenta", "document": "blue", "artifact": "cyan",
+        "general": "dim",
+    }.get(task_type, "dim")
     task_line = f"[{_type_color}]{task_label}[/{_type_color}]"
     if task_note:
         task_line += f"  [dim]{task_note}[/dim]"
     console.print(f"[bold]Tipo de tarea detectado:[/bold] {task_line}\n")
 
+    # Resolver tipo de output efectivo
+    _valid_output_types = {"text", "image", "code", "pdf", "artifact"}
+    if output_type in _valid_output_types:
+        effective_output_type = output_type
+    else:
+        # auto: inferir desde task_type
+        _task_to_output = {"image": "image", "document": "pdf", "artifact": "artifact", "code": "code"}
+        effective_output_type = _task_to_output.get(task_type, "text")
+
     if not no_tips:
-        suggestions = analyze_prompt(text, effective_lang)
+        suggestions = analyze_prompt(text, effective_lang, effective_output_type)
         rec = recommend_model(text, tokens)
         positives = positive_aspects(text, effective_lang)
         _render_suggestions(suggestions, rec, positives, verbose=verbose)
@@ -459,6 +476,12 @@ def guide() -> None:
         "--output-ratio",
         "Fracción estimada de tokens de salida vs entrada (por defecto: 0.4 = 40 %)",
         "--output-ratio 1.2",
+    )
+    opt_table.add_row(
+        "-t / --output-type",
+        "Tipo de output esperado: auto (por defecto), text, image, code, pdf, artifact. "
+        "Ajusta las sugerencias según si el output es texto, imagen, documento, etc.",
+        '-t image  o  --output-type pdf',
     )
     opt_table.add_row(
         "--no-tips",

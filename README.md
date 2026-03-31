@@ -8,66 +8,36 @@ It calculates energy consumption, CO₂ emissions, water usage, and API cost —
 
 ## Installation
 
-### Step 1 — Install Python
+Requires **Python ≥ 3.8**. Pick the method that suits you:
 
-eco-ai requires Python to run. First, check if you already have it by opening the **Terminal** (on Mac: press `Cmd + Space`, type "Terminal" and hit Enter) and running:
+| Method | Command | Notes |
+|--------|---------|-------|
+| **pipx** ⭐ | `pipx install eco-ai` | Recommended — isolated install, no conflicts |
+| **pip** | `pip install eco-ai` | Use inside a virtual environment |
+| **uv** | `uv tool install eco-ai` | Fastest option if you already use uv |
 
-```bash
-python3 --version
-```
+> **Don't have Python yet?** Download it from [python.org/downloads](https://www.python.org/downloads/) — no custom settings needed during install.
 
-If you see something like `Python 3.8.x` or higher, you're good — skip to Step 2.
-
-If you get an error, download Python from the official website:
-
-> https://www.python.org/downloads/
-
-Download the installer for your operating system (Mac or Windows), run it, and follow the steps. You don't need to change any default settings.
-
----
-
-### Step 2 — Download eco-ai
-
-Download this repository as a ZIP file (green "Code" button → "Download ZIP") and unzip it somewhere on your computer, for example your Desktop.
-
----
-
-### Step 3 — Install eco-ai
-
-In the Terminal, navigate to the folder where you unzipped the project. If you put it on the Desktop, type:
+<details>
+<summary>Manual install (for contributors)</summary>
 
 ```bash
-cd ~/Desktop/eco-ai
+git clone https://github.com/your-username/eco-ai.git
+cd eco-ai
+pip install -e .
 ```
 
-Then run:
+</details>
 
-```bash
-pip3 install -e .
-```
-
-This automatically downloads and installs everything eco-ai needs. You only need to do this once.
-
-> **Getting a permissions error?** Try:
-> ```bash
-> pip3 install -e . --user
-> ```
-
----
-
-### Step 4 — Check it works
+Verify the install:
 
 ```bash
 eco-ai --help
 ```
 
-If you see a list of commands, the installation was successful.
-
 ---
 
 ## Usage
-
-Open the Terminal and type the prompt you want to analyse between quotes:
 
 ```bash
 eco-ai analyze "Explain what climate change is and what its main causes are"
@@ -79,7 +49,7 @@ eco-ai will show you:
 - **Concrete suggestions** to reduce the impact by rewriting your prompt more efficiently
 - The **recommended AI model** based on the complexity of your request
 
-### Other useful commands
+### Other commands
 
 ```bash
 # Compare the impact of the same prompt across all available models
@@ -95,12 +65,13 @@ eco-ai guide
 eco-ai config --lang en
 ```
 
-### Advanced options for `analyze`
+### Options for `analyze`
 
 | Option | Description | Default |
 |--------|-------------|---------|
 | `-m / --model` | Reference model for the calculation | Claude Sonnet 4.6 |
 | `-f / --file` | Read the prompt from a text file | — |
+| `-t / --output-type` | Expected output type: `auto`, `text`, `image`, `code`, `pdf`, `artifact` | auto |
 | `--output-ratio` | Estimated fraction of output tokens relative to input | 0.4 |
 | `--lang` | Prompt language (`es` or `en`) | Saved config |
 | `--verbose` | Show bibliographic references for each suggestion | — |
@@ -143,3 +114,9 @@ eco-ai config --lang en
 ## Privacy
 
 All analysis happens on your device. Your prompt text is never sent to any external server.
+
+---
+
+## License
+
+MIT © [Maria Prokhorova](https://github.com/your-username)

@@ -6,7 +6,25 @@ build-backend = "hatchling.build"
 name = "eco-ai"
 version = "0.1.0"
 description = "Analiza el impacto ecológico de tus prompts de IA y sugiere cómo optimizarlos"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Maria Prokhorova" },
+]
 requires-python = ">=3.8"
+keywords = ["ai", "sustainability", "prompts", "green-computing", "cli"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Environment :: Console",
+    "Topic :: Utilities",
+    "Intended Audience :: Developers",
+]
 dependencies = [
     "typer>=0.12",
     "rich>=13",

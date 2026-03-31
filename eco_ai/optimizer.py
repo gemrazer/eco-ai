@@ -263,6 +263,49 @@ _DIRECT_START = re.compile(
     r"|describe|calculate|extract|classify|fix|improve|review)\b",
 )
 
+# ---------------------------------------------------------------------------
+# Detección de tipo de output (imagen, documento, artefacto, código)
+# ---------------------------------------------------------------------------
+
+_IMAGE_OUTPUT_RE = re.compile(
+    r"\b(genera(r)? (una? )?imagen|crea(r)? (una? )?imagen|dibuja(r)?|ilustra(r)?"
+    r"|diseña(r)? (una? )?(imagen|ilustracion|grafico|icono|logo|banner|portada)"
+    r"|generate (an? )?image|create (an? )?image|draw|illustrate"
+    r"|design (an? )?(image|illustration|graphic|icon|logo|banner|cover))\b"
+)
+_DOCUMENT_OUTPUT_RE = re.compile(
+    r"\b(genera(r)? (un? )?(pdf|documento|informe|reporte|presentacion|propuesta)"
+    r"|crea(r)? (un? )?(pdf|documento|informe|reporte|presentacion|propuesta)"
+    r"|redacta(r)? (un? )?(informe|reporte|memoria|propuesta)"
+    r"|generate (a )?(pdf|document|report|presentation|proposal|memo)"
+    r"|create (a )?(pdf|document|report|presentation|proposal|memo)"
+    r"|write (a )?(report|document|proposal|memo|whitepaper))\b"
+)
+_ARTIFACT_OUTPUT_RE = re.compile(
+    r"\b(hoja de calculo|spreadsheet|excel|genera(r)? (un? )?(csv|json|xml|yaml|archivo)"
+    r"|crea(r)? (un? )?(csv|json|xml|yaml|fichero)|generate (a )?(csv|json|xml|spreadsheet|file)"
+    r"|create (a )?(csv|json|xml|spreadsheet|file))\b"
+)
+# Atributos de calidad para prompts de imagen
+_IMAGE_STYLE_RE = re.compile(
+    r"\b(estilo|style|realista|realistic|fotorrealista|photorealistic|anime|cartoon"
+    r"|ilustracion|illustration|oil painting|acuarela|watercolor|digital art"
+    r"|3d render|isometric|minimalista|minimalist|abstracto|abstract|pixel art"
+    r"|cinematografico|cinematic|hiperrealista|hyperrealistic)\b"
+)
+_IMAGE_ASPECT_RE = re.compile(
+    r"\b(relacion de aspecto|aspect ratio|16:9|9:16|4:3|1:1|cuadrado|square"
+    r"|horizontal|vertical|portrait|landscape|\d+x\d+|\d+\s*px|4k|8k|hd)\b"
+)
+_IMAGE_NEGATIVE_RE = re.compile(
+    r"\b(negative prompt|prompt negativo|sin incluir|without|evitar|avoid|excluir|exclude"
+    r"|no quiero|i don't want|remove|eliminar de la imagen)\b"
+)
+_DOC_STRUCTURE_RE = re.compile(
+    r"\b(secciones?|sections?|capitulos?|chapters?|paginas?|pages?"
+    r"|apartados?|indice|table of contents|resumen ejecutivo|executive summary)\b"
+)
+
 
 # ---------------------------------------------------------------------------
 # Consultas personales genéricas — marcadores de primera persona y dominios
@@ -494,7 +537,7 @@ class ModelRecommendation:
 # Análisis de redacción
 # ---------------------------------------------------------------------------
 
-def analyze(text: str, lang: Lang = Lang.ES) -> list[Suggestion]:
+def analyze(text: str, lang: Lang = Lang.ES, output_type: str = "text") -> list[Suggestion]:
     """
     Analiza el prompt y devuelve sugerencias de mejora.
     Usa los patrones del idioma indicado para detectar problemas.
@@ -616,12 +659,12 @@ def analyze(text: str, lang: Lang = Lang.ES) -> list[Suggestion]:
             source='Webson & Pavlick (2021) "Do Prompt-Based Models Really Understand the Meaning of Their Prompts?"',
         ))
 
-    # 8. Formato de salida no especificado
+    # 8. Formato de salida no especificado (solo aplica a output de texto)
     # Especificar el formato reduce la longitud de la respuesta al eliminar
     # introducciones, transiciones y conclusiones que el modelo añade por defecto.
     # Referencia: Sclar et al. (2023) cuantifican la sensibilidad de los LLMs
     # al formato del prompt; Anthropic reporta reducción de 10–30% en tokens de salida.
-    if len(words) > 50 and not any(f in norm for f in fmt_words):
+    if output_type == "text" and len(words) > 50 and not any(f in norm for f in fmt_words):
         suggestions.append(Suggestion(
             category="Formato de salida no indicado",
             description="Especificar el formato evita que el modelo genere texto extra (introducciones, conclusiones innecesarias).",
@@ -633,12 +676,14 @@ def analyze(text: str, lang: Lang = Lang.ES) -> list[Suggestion]:
             source='Sclar et al. (2023) "Quantifying Sensitivity to Spurious Features in NLP"; Anthropic Prompt Engineering Guide (2024)',
         ))
 
-    # 10. Verbo de alta energía
+    # 10. Verbo de alta energía (no aplica a outputs no textuales donde el verbo es estructural)
     # La jerarquía de impacto por verbo muestra que tareas como "Analizar" consumen
     # hasta 2.5× más energía que "Resumir". Cambiar el verbo es la optimización más
     # barata (coste cero) con mayor impacto en tokens de salida.
     # Fuente: Luccioni et al. (2023); doc de referencia eco-ai Sección 3.
-    verb_match = _VERB_DETECT_RE.match(norm.lstrip())
+    # Para imagen, pdf, artefacto y código el verbo ("crea", "genera", "escribe") es
+    # inherente al tipo de tarea — no tiene alternativa semántica válida.
+    verb_match = None if output_type in ("image", "pdf", "artifact", "code") else _VERB_DETECT_RE.match(norm.lstrip())
     if verb_match:
         detected = verb_match.group(1)
         if detected in _VERB_ENERGY:
@@ -668,13 +713,15 @@ def analyze(text: str, lang: Lang = Lang.ES) -> list[Suggestion]:
                     source="Luccioni et al. (2023) — jerarquía de impacto por tipo de tarea; valores Wh por verbo",
                 ))
 
-    # 11. Sin restricción de longitud de salida (Green Prompting)
+    # 11. Sin restricción de longitud de salida (Green Prompting — solo texto)
     # Forzar al modelo a limitar la extensión de la respuesta es la técnica de mayor
     # ROI energético: elimina tokens de introducción, relleno y conclusiones sin pérdida
     # de información esencial.
+    # Para outputs no textuales (imagen, PDF, artefacto, código) no aplica porque
+    # la "longitud" viene determinada por el tipo de output, no por palabras.
     # Fuente: Green Prompting methodology; Sclar et al. (2023).
     output_limit_re = _ES_OUTPUT_LIMIT if lang == Lang.ES else _EN_OUTPUT_LIMIT
-    if len(words) > 30 and not output_limit_re.search(norm):
+    if output_type == "text" and len(words) > 30 and not output_limit_re.search(norm):
         suggestions.append(Suggestion(
             category="Sin límite de longitud de salida" if lang == Lang.ES else "No output length limit",
             description=(
@@ -733,6 +780,132 @@ def analyze(text: str, lang: Lang = Lang.ES) -> list[Suggestion]:
                     "Avoids 2–4 complete iteration rounds"
                 ),
                 source="Método ROCKS (Role, Objective, Community, Key, Shape) — Green Prompting, Sección 4",
+            ))
+
+    # -----------------------------------------------------------------------
+    # Sugerencias específicas por tipo de output
+    # -----------------------------------------------------------------------
+
+    # 13. Output = imagen — calidad del prompt visual
+    if output_type == "image":
+        if not _IMAGE_STYLE_RE.search(norm):
+            suggestions.append(Suggestion(
+                category="Estilo visual no especificado" if lang == Lang.ES else "Visual style not specified",
+                description=(
+                    "Los modelos de imagen necesitan una referencia estilística para evitar salidas genéricas. "
+                    "Especifica el medio o estilo artístico."
+                    if lang == Lang.ES else
+                    "Image models need a style reference to avoid generic outputs. "
+                    "Specify the medium or artistic style."
+                ),
+                example=(
+                    '"estilo fotorrealista" / "ilustración digital" / "acuarela" / "3D render isométrico"'
+                    if lang == Lang.ES else
+                    '"photorealistic style" / "digital illustration" / "watercolor" / "isometric 3D render"'
+                ),
+                savings_estimate=(
+                    "Reduce iteraciones de regeneración (cada intento ~2–5× más energía que texto)"
+                    if lang == Lang.ES else
+                    "Reduces regeneration iterations (each attempt ~2–5× more energy than text)"
+                ),
+                source="Luccioni et al. (2023) — imagen generativa tiene mayor coste energético que texto",
+            ))
+
+        if not _IMAGE_ASPECT_RE.search(norm):
+            suggestions.append(Suggestion(
+                category="Relación de aspecto no indicada" if lang == Lang.ES else "Aspect ratio not specified",
+                description=(
+                    "Sin relación de aspecto el modelo usa el cuadrado por defecto, "
+                    "que puede no ser lo que necesitas."
+                    if lang == Lang.ES else
+                    "Without an aspect ratio the model defaults to square, "
+                    "which may not fit your use case."
+                ),
+                example=(
+                    '"16:9 (horizontal)" / "9:16 (vertical/móvil)" / "1:1 (cuadrado)"'
+                    if lang == Lang.ES else
+                    '"16:9 (landscape)" / "9:16 (portrait/mobile)" / "1:1 (square)"'
+                ),
+                savings_estimate=(
+                    "Evita un intento extra solo por recortar la imagen"
+                    if lang == Lang.ES else
+                    "Avoids a retry just to fix the crop"
+                ),
+                source="Buenas prácticas de prompt engineering para modelos imagen (DALL·E, Stable Diffusion, Flux)",
+            ))
+
+        if not _IMAGE_NEGATIVE_RE.search(norm):
+            suggestions.append(Suggestion(
+                category="Sin prompt negativo" if lang == Lang.ES else "No negative prompt",
+                description=(
+                    "Los modelos de imagen atienden a lo que *no* quieres tanto como a lo que sí. "
+                    "Añade elementos a excluir para reducir los reintentos."
+                    if lang == Lang.ES else
+                    "Image models respond to what you *don't* want as much as what you do. "
+                    "Add elements to exclude to reduce retries."
+                ),
+                example=(
+                    '"sin texto, sin marcas de agua, sin distorsión de manos"'
+                    if lang == Lang.ES else
+                    '"no text, no watermarks, no hand distortion"'
+                ),
+                savings_estimate=(
+                    "Puede reducir hasta un 50% los reintentos"
+                    if lang == Lang.ES else
+                    "Can reduce retries by up to 50%"
+                ),
+                source="Stable Diffusion / DALL·E best practices; Luccioni et al. (2023)",
+            ))
+
+    # 14. Output = documento/PDF
+    elif output_type == "pdf":
+        if not _DOC_STRUCTURE_RE.search(norm):
+            suggestions.append(Suggestion(
+                category="Estructura del documento no definida" if lang == Lang.ES else "Document structure not defined",
+                description=(
+                    "Sin estructura explícita el modelo genera un único bloque de texto. "
+                    "Indica secciones, número de páginas o un índice para obtener un documento usable a la primera."
+                    if lang == Lang.ES else
+                    "Without explicit structure the model generates a single text block. "
+                    "Specify sections, page count or an outline to get a usable document on the first try."
+                ),
+                example=(
+                    '"Incluye: portada, resumen ejecutivo, introducción, 3 secciones temáticas y conclusiones"'
+                    if lang == Lang.ES else
+                    '"Include: cover page, executive summary, introduction, 3 topic sections and conclusions"'
+                ),
+                savings_estimate=(
+                    "Evita 2–3 rondas de corrección estructural"
+                    if lang == Lang.ES else
+                    "Avoids 2–3 rounds of structural revision"
+                ),
+                source="Anthropic Prompt Engineering Guide (2024) — especificidad en tareas de redacción larga",
+            ))
+
+    # 15. Output = artefacto (CSV, JSON, spreadsheet…)
+    elif output_type == "artifact":
+        schema_re = re.compile(r"\b(columnas?|columns?|campos?|fields?|esquema|schema|estructura|structure|formato|format)\b")
+        if not schema_re.search(norm):
+            suggestions.append(Suggestion(
+                category="Esquema del artefacto no especificado" if lang == Lang.ES else "Artifact schema not specified",
+                description=(
+                    "Para CSV, JSON o spreadsheets, define las columnas/campos esperados. "
+                    "Sin esquema el modelo inventa la estructura y suele requerir correcciones."
+                    if lang == Lang.ES else
+                    "For CSV, JSON or spreadsheets, define the expected columns/fields. "
+                    "Without a schema the model invents the structure and corrections are usually needed."
+                ),
+                example=(
+                    '"CSV con columnas: fecha, nombre, importe, categoría"'
+                    if lang == Lang.ES else
+                    '"CSV with columns: date, name, amount, category"'
+                ),
+                savings_estimate=(
+                    "Evita iterar para corregir la estructura del artefacto"
+                    if lang == Lang.ES else
+                    "Avoids iterations to fix the artifact structure"
+                ),
+                source="Principio de especificidad — Anthropic Prompt Engineering Guide (2024)",
             ))
 
     # 9. Consulta personal genérica sin contexto suficiente
@@ -911,6 +1084,21 @@ def detect_task_type(text: str, lang: Lang = Lang.ES) -> tuple[str, str, str]:
     """
     norm = _normalize_for_match(text)
     stripped = norm.lstrip()
+
+    if _IMAGE_OUTPUT_RE.search(norm):
+        if lang == Lang.ES:
+            return ("image", "Generación de imagen", "Impacto muy alto — inferencia visual intensiva")
+        return ("image", "Image Generation", "Very high impact — intensive visual inference")
+
+    if _DOCUMENT_OUTPUT_RE.search(norm):
+        if lang == Lang.ES:
+            return ("document", "Generación de documento", "Impacto alto — salida extensa y estructurada")
+        return ("document", "Document Generation", "High impact — long and structured output")
+
+    if _ARTIFACT_OUTPUT_RE.search(norm):
+        if lang == Lang.ES:
+            return ("artifact", "Generación de artefacto", "Impacto moderado — salida estructurada y acotada")
+        return ("artifact", "Artifact Generation", "Moderate impact — structured and bounded output")
 
     if _TASK_FACT_RE.search(stripped):
         if lang == Lang.ES:
