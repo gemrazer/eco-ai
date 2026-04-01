@@ -437,6 +437,114 @@ _INLINE_EXAMPLE_RE = re.compile(
 )
 
 # ---------------------------------------------------------------------------
+# Redirección a herramienta más eficiente (tool routing)
+# Consultas que una app especializada resuelve con menor energía y mayor precisión.
+# Referencia: Luccioni et al. (2023) — coste energético de inferencia vs. búsqueda
+# indexada (~0.0003 Wh/búsqueda vs. ~0.001–0.01 Wh/consulta LLM).
+# ---------------------------------------------------------------------------
+
+# Tipos de lugar/negocio local (ES + EN normalizados)
+_LOCAL_PLACE_TYPE_RE = re.compile(
+    r"\b(restaurantes?|bares?|cafeterias?|cafes?|bistros?|tabernas?|bodegas?|tapas?"
+    r"|heladerias?|panaderias?|pastelerias?|pizzerias?"
+    r"|tiendas?|farmacias?|hospitales?|hoteles?|hostales?|alojamientos?"
+    r"|gasolineras?|supermercados?|hipermercados?|bancos?|cajeros? automaticos?"
+    r"|gimnasios?|peluquerias?|barberias?|clinicas?|dentistas?"
+    r"|discotecas?|clubs?|pubs?"
+    r"|museos?|parques?|playas?|monumentos?|iglesias?|catedrales?"
+    r"|restaurants?|bars?|cafes?|coffee shops?|taverns?"
+    r"|pharmacies?|hospitals?|hotels?|hostels?|accommodations?"
+    r"|gas stations?|supermarkets?|banks?|atms?|gyms?|salons?|barbershops?"
+    r"|clinics?|dentists?|museums?|parks?|beaches?|monuments?|churches?)\b"
+)
+
+# Señal de ubicación geográfica
+_LOCATION_SIGNAL_RE = re.compile(
+    r"\bcerca (de|del|de la|de los|de las)\b"
+    r"|\ben [a-z]{3,}\b"
+    r"|\bpor (el centro|el barrio|la zona|mi zona|mi barrio)\b"
+    r"|\ben mi (zona|barrio|ciudad|area|pueblo)\b"
+    r"|\bnear(by)?\b|\bclose to\b|\baround\b"
+    r"|\bin [a-z]{3,}\b"
+    r"|\bin my (area|neighborhood|district|city|town)\b"
+)
+
+# Intención de búsqueda local explícita
+_SEARCH_INTENT_RE = re.compile(
+    r"\b(dime|busca|encuentra|recomienda(me)?|dame|hay\b|cuales (son|hay)|donde (hay|estan|puedo encontrar)"
+    r"|tell me|find|recommend|give me|are there|which|where (are|is|can i find))\b"
+)
+
+# Criterios de calidad vagos aplicados a lugares/productos
+# Captura el término exacto para incluirlo en la sugerencia personalizada
+_VAGUE_QUALITY_PLACE_RE = re.compile(
+    r"\b(buenos?|buenas?|buen\b|buena\b"
+    r"|bonitos?|bonitas?\b"
+    r"|baratos?|baratas?\b"
+    r"|caros?|caras?\b"
+    r"|populares?\b"
+    r"|famosos?|famosas?\b"
+    r"|recomendables?\b"
+    r"|tipicos?|tipicas?\b"
+    r"|modernos?|modernas?\b"
+    r"|autenticos?|autenticas?\b"
+    r"|romanticos?|romanticas?\b"
+    r"|tranquilos?|tranquilas?\b"
+    r"|animados?|animadas?\b"
+    r"|de moda\b"
+    r"|good\b|great\b|nice\b|cheap\b|affordable\b|popular\b|famous\b"
+    r"|recommended\b|typical\b|modern\b|authentic\b|romantic\b"
+    r"|quiet\b|lively\b|trendy\b|well.?rated|highly.?rated|top.?rated)\b"
+)
+
+# Proximidad vaga sin radio concreto
+_VAGUE_PROXIMITY_RE = re.compile(
+    r"\bcerca (de|del|de la)\b|\bnearby\b|\bclose to\b|\baround\b|\bproximo (a|al)\b"
+)
+_CONCRETE_DISTANCE_RE = re.compile(
+    r"\b(\d+\s*(km|kms|kilometros|metros?|miles?|minutes? walk|min(uto)?s? (a pie|caminando|en coche|en metro)))\b"
+    r"|\b(a pie|walking distance|caminando)\b"
+)
+
+# Información en tiempo real (mejor con apps dedicadas)
+_REALTIME_RE = re.compile(
+    r"\b(tiempo (que hace|atmosferico|va a hacer|hara)"
+    r"|que tiempo (va a hacer|hara|hace) (manana|hoy|esta semana|en)"
+    r"|clima (de|en|actual)"
+    r"|temperatura (actual|de hoy|ahora|en)"
+    r"|va a llover|va a nevar|llover(a|ia)\b"
+    r"|partidos? de (hoy|esta noche|este fin de semana)"
+    r"|resultados? (del?|de) (partido|juego)"
+    r"|precio (actual|de hoy|ahora mismo) (de|del)|cotizacion (actual|de)"
+    r"|noticias (de hoy|actuales|recientes|de ultima hora)"
+    r"|vuelos? disponibles?|precio(s)? de vuelos?"
+    r"|hora (actual|en)|que hora (es|son) (en|ahora)"
+    r"|cuando (sale|llega|pasa) (el |la )?(proximo|siguiente)? ?(tren|bus|metro|avion|cercanias)"
+    r"|weather (today|now|right now|forecast|in|tomorrow)\b|current (weather|temperature)\b"
+    r"|will it rain|will it snow|is it (raining|snowing)\b"
+    r"|today.?s? (game|score|match|result)|sports (results?|scores?)\b"
+    r"|current (price|stock|rate) of\b|stock (price|market)\b"
+    r"|(latest|breaking|current|today.?s?) news\b"
+    r"|available flights?\b|cheap(est)? flights?\b|flight (schedule|status|prices?)\b"
+    r"|current time in\b|(next|upcoming) (train|bus|metro|flight|plane)\b)\b"
+)
+
+# Rutas y direcciones
+_DIRECTIONS_RE = re.compile(
+    r"\bcomo (se llega|llego|llegar) (a|al|desde|hasta)\b"
+    r"|\bruta (de|a|hacia|desde|hasta|mas (corta|rapida|directa))\b"
+    r"|\bcuanto (tardo|se tarda|tarda) en llegar\b"
+    r"|\bque (bus|metro|linea|tren|cercanias|tranvia) (coge|va|lleva|me lleva) (a|hasta|al)\b"
+    r"|\bcomo (ir|llegar) (a|al|desde|hasta)\b"
+    r"|\bhay (bus|metro|tren) (a|al|hasta|que va)\b"
+    r"|\bhow (to get|do i get|can i get) (to|from)\b"
+    r"|\bdirections? (to|from)\b"
+    r"|\broute (to|from|between)\b"
+    r"|\bhow long (to get to|to travel to|does it take to reach)\b"
+    r"|\bwhich (bus|train|metro|subway|tram) (goes|takes me|gets me) to\b"
+)
+
+# ---------------------------------------------------------------------------
 # Consultas personales genéricas — marcadores de primera persona y dominios
 # ---------------------------------------------------------------------------
 
@@ -1346,6 +1454,210 @@ def analyze(text: str, lang: Lang = Lang.ES, output_type: str = "text") -> list[
                 "Anthropic Prompt Engineering Guide (2024) — extended thinking; "
                 "OpenAI Best Practices (2024) — chain-of-thought prompting"
             ),
+        ))
+
+    # -----------------------------------------------------------------------
+    # Checks de routing — herramienta especializada vs. LLM
+    # -----------------------------------------------------------------------
+
+    # 19. Búsqueda local de lugares — herramienta más eficiente disponible
+    # Restaurantes, hoteles, tiendas y servicios cerca de una ubicación se resuelven
+    # mejor con Google Maps/TripAdvisor: datos en tiempo real, horarios actualizados,
+    # fotos y valoraciones verificadas, con un coste energético ~100–200× menor.
+    # Fuente: Luccioni et al. (2023) — inferencia LLM vs. búsqueda indexada.
+    place_match = _LOCAL_PLACE_TYPE_RE.search(norm)
+    has_location = _LOCATION_SIGNAL_RE.search(norm)
+    has_search_intent = _SEARCH_INTENT_RE.search(norm)
+    quality_match = _VAGUE_QUALITY_PLACE_RE.search(norm)
+
+    if place_match and (has_location or has_search_intent):
+        place_term = place_match.group(0)
+        if quality_match:
+            vague_term = quality_match.group(0)
+            suggestions.append(Suggestion(
+                category=(
+                    "Herramienta más eficiente disponible"
+                    if lang == Lang.ES else
+                    "More efficient tool available"
+                ),
+                description=(
+                    f'Tu prompt busca {place_term} con el criterio "{vague_term}", que es subjetivo. '
+                    f'Google Maps o TripAdvisor resuelven esto con datos en tiempo real y valoraciones '
+                    f'verificadas, con ~100–200× menos energía que un LLM. '
+                    f'Si prefieres usar IA, define qué significa "{vague_term}" para ti: '
+                    f'tipo de cocina/producto, rango de precio (€/€€/€€€), ocasión (romántico, '
+                    f'familiar, negocios), valoración mínima (p. ej. >4★).'
+                    if lang == Lang.ES else
+                    f'Your prompt searches for {place_term} using the criterion "{vague_term}", which is subjective. '
+                    f'Google Maps or TripAdvisor handle this with real-time data and verified reviews, '
+                    f'using ~100–200× less energy than an LLM. '
+                    f'If you prefer AI, define what "{vague_term}" means to you: '
+                    f'cuisine/product type, price range ($/$$/$$$), occasion (romantic, '
+                    f'family, business), minimum rating (e.g. >4★).'
+                ),
+                savings_estimate=(
+                    "Búsqueda indexada: ~0.0003 Wh vs. ~0.001–0.01 Wh del LLM"
+                    if lang == Lang.ES else
+                    "Indexed search: ~0.0003 Wh vs. ~0.001–0.01 Wh for LLM"
+                ),
+                source="Luccioni et al. (2023) — coste energético de inferencia vs. búsqueda indexada",
+            ))
+        else:
+            suggestions.append(Suggestion(
+                category=(
+                    "Herramienta más eficiente disponible"
+                    if lang == Lang.ES else
+                    "More efficient tool available"
+                ),
+                description=(
+                    f'Tu prompt busca {place_term} en una ubicación concreta. '
+                    f'Google Maps o TripAdvisor dan horarios en tiempo real, fotos y valoraciones '
+                    f'verificadas con ~100–200× menos energía que un LLM. '
+                    f'Si usas IA, añade contexto: distancia máxima, rango de precio y ocasión.'
+                    if lang == Lang.ES else
+                    f'Your prompt is looking for {place_term} in a specific location. '
+                    f'Google Maps or TripAdvisor provide live opening hours, photos and verified reviews '
+                    f'using ~100–200× less energy than an LLM. '
+                    f'If you use AI, add context: maximum distance, price range and occasion.'
+                ),
+                savings_estimate=(
+                    "Búsqueda indexada: ~0.0003 Wh vs. ~0.001–0.01 Wh del LLM"
+                    if lang == Lang.ES else
+                    "Indexed search: ~0.0003 Wh vs. ~0.001–0.01 Wh for LLM"
+                ),
+                source="Luccioni et al. (2023) — coste energético de inferencia vs. búsqueda indexada",
+            ))
+    elif place_match and quality_match:
+        # Place type + vague quality but no location — only suggest context enrichment
+        place_term = place_match.group(0)
+        vague_term = quality_match.group(0)
+        suggestions.append(Suggestion(
+            category=(
+                "Criterio de calidad no definido"
+                if lang == Lang.ES else
+                "Undefined quality criterion"
+            ),
+            description=(
+                f'El término "{vague_term}" aplicado a {place_term} es subjetivo y produce respuestas '
+                f'genéricas. Define qué significa para ti: tipo de cocina/estilo, '
+                f'presupuesto, ocasión o ambiente, y valoración mínima.'
+                if lang == Lang.ES else
+                f'The term "{vague_term}" applied to {place_term} is subjective and leads to generic responses. '
+                f'Define what it means to you: cuisine/style type, '
+                f'budget, occasion or vibe, and minimum rating.'
+            ),
+            savings_estimate=(
+                "Evita 2–4 rondas de aclaración"
+                if lang == Lang.ES else
+                "Avoids 2–4 clarification rounds"
+            ),
+            source="Principio de especificidad contextual — Anthropic Prompt Engineering Guide (2024)",
+        ))
+
+    # 20. Proximidad vaga sin radio concreto
+    # "Cerca de X" sin distancia concreta hace que el modelo genere listas basadas en
+    # criterios arbitrarios. Especificar un radio elimina la ambigüedad y la iteración.
+    if (
+        has_location
+        and not place_match  # ya cubierto por check 19 si hay tipo de lugar
+        and _VAGUE_PROXIMITY_RE.search(norm)
+        and not _CONCRETE_DISTANCE_RE.search(norm)
+    ):
+        suggestions.append(Suggestion(
+            category=(
+                "Proximidad vaga sin radio"
+                if lang == Lang.ES else
+                "Vague proximity without radius"
+            ),
+            description=(
+                '"Cerca de" es relativo: puede ser 200 m a pie o 5 km en coche. '
+                "Especifica la distancia máxima o el medio de transporte para obtener resultados útiles."
+                if lang == Lang.ES else
+                '"Nearby" is relative: it could mean 200 m on foot or 5 km by car. '
+                "Specify a maximum distance or transport mode to get useful results."
+            ),
+            example=(
+                '"a menos de 1 km a pie" / "en un radio de 5 km en coche" / "en el barrio de Gracia"'
+                if lang == Lang.ES else
+                '"within 1 km walking" / "within a 5 km drive" / "in the Gracia neighbourhood"'
+            ),
+            savings_estimate=(
+                "Evita 1–2 turnos para refinar el criterio de distancia"
+                if lang == Lang.ES else
+                "Avoids 1–2 turns to refine the distance criterion"
+            ),
+            source="Principio de especificidad — Anthropic Prompt Engineering Guide (2024)",
+        ))
+
+    # 21. Información en tiempo real — datos que el LLM no puede proporcionar con precisión
+    # Clima, resultados deportivos, precios actuales, noticias y horarios requieren
+    # acceso a datos en vivo. Usar apps especializadas es más preciso y ~30–50× más eficiente.
+    # Fuente: Luccioni et al. (2023); Strubell et al. (2019).
+    if _REALTIME_RE.search(norm):
+        suggestions.append(Suggestion(
+            category=(
+                "Datos en tiempo real — usa una app dedicada"
+                if lang == Lang.ES else
+                "Real-time data — use a dedicated app"
+            ),
+            description=(
+                "Tu prompt pide información que cambia constantemente (clima, noticias, precios, "
+                "horarios o resultados). Los LLMs tienen fecha de corte de conocimiento y pueden "
+                "devolver datos desactualizados. Una app o buscador dedicado es más preciso y "
+                "usa ~30–50× menos energía por consulta."
+                if lang == Lang.ES else
+                "Your prompt asks for information that changes constantly (weather, news, prices, "
+                "schedules or results). LLMs have a training cutoff and may return outdated data. "
+                "A dedicated app or search engine is more accurate and uses ~30–50× less energy per query."
+            ),
+            example=(
+                "Clima → app del móvil / Weather.com  ·  Noticias → Google News  ·  "
+                "Vuelos → Google Flights / Skyscanner  ·  Precios → Google Shopping"
+                if lang == Lang.ES else
+                "Weather → phone app / Weather.com  ·  News → Google News  ·  "
+                "Flights → Google Flights / Skyscanner  ·  Prices → Google Shopping"
+            ),
+            savings_estimate=(
+                "~0.0003 Wh/búsqueda web vs. ~0.001–0.01 Wh/consulta LLM"
+                if lang == Lang.ES else
+                "~0.0003 Wh/web search vs. ~0.001–0.01 Wh/LLM query"
+            ),
+            source="Luccioni et al. (2023); Strubell et al. (2019) — coste energético de inferencia vs. búsqueda",
+        ))
+
+    # 22. Rutas y direcciones — algoritmos especializados más eficientes
+    # Google Maps y equivalentes calculan rutas óptimas con tráfico en tiempo real,
+    # opciones de transporte público y tiempos exactos que un LLM no puede ofrecer.
+    # Fuente: Luccioni et al. (2023) — routing algorítmico vs. inferencia neuronal.
+    if _DIRECTIONS_RE.search(norm):
+        suggestions.append(Suggestion(
+            category=(
+                "Rutas y direcciones — usa Google Maps"
+                if lang == Lang.ES else
+                "Routes and directions — use Google Maps"
+            ),
+            description=(
+                "Tu prompt pide cómo llegar a un lugar o calcular una ruta. "
+                "Google Maps, Waze o Citymapper ofrecen tráfico en tiempo real, "
+                "opciones de transporte público actualizadas y tiempos exactos — "
+                "con un impacto energético mínimo frente al LLM."
+                if lang == Lang.ES else
+                "Your prompt asks how to get somewhere or calculate a route. "
+                "Google Maps, Waze or Citymapper provide live traffic, "
+                "up-to-date public transport options and precise times — "
+                "at a fraction of the energy cost of an LLM."
+            ),
+            example=(
+                "Google Maps → tráfico en tiempo real, horarios de autobús y rutas multimodal"
+                if lang == Lang.ES else
+                "Google Maps → live traffic, bus schedules and multi-modal routes"
+            ),
+            savings_estimate=(
+                "Routing algorítmico vs. LLM: ~1 000× menos energía por consulta"
+                if lang == Lang.ES else
+                "Algorithmic routing vs. LLM: ~1 000× less energy per query"
+            ),
+            source="Luccioni et al. (2023) — búsqueda indexada y routing algorítmico vs. inferencia neuronal",
         ))
 
     return suggestions

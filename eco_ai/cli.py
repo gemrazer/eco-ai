@@ -1,4 +1,4 @@
-"""eco-ai: Analiza el impacto ecológico de tus prompts de IA."""
+"""eco-ai: Estimate and reduce the ecological impact of your AI prompts."""
 
 from __future__ import annotations
 
@@ -61,7 +61,7 @@ def _print_welcome(lang: Lang) -> None:
 
 app = typer.Typer(
     name="eco-ai",
-    help="Estima el impacto ecológico de tus prompts de IA y sugiere cómo optimizarlos.",
+    help="Estimate the ecological impact of your AI prompts and get optimisation suggestions.",
     add_completion=False,
     invoke_without_command=True,
     no_args_is_help=False,
@@ -72,7 +72,7 @@ console = Console()
 
 @app.callback()
 def main(ctx: typer.Context) -> None:
-    """eco-ai — uso consciente de la inteligencia artificial."""
+    """eco-ai — conscious use of artificial intelligence."""
     if ctx.invoked_subcommand is None:
         _print_welcome(get_lang())
 
@@ -238,24 +238,24 @@ def _render_suggestions(suggestions, rec, positives, lang: Lang, verbose: bool =
 
 @app.command()
 def analyze(
-    prompt: Optional[str] = typer.Argument(None, help="Texto del prompt a analizar"),
-    file: Optional[Path] = typer.Option(None, "--file", "-f", help="Fichero de texto con el prompt"),
+    prompt: Optional[str] = typer.Argument(None, help="Prompt text to analyse"),
+    file: Optional[Path] = typer.Option(None, "--file", "-f", help="Read the prompt from a text file"),
     model: str = typer.Option(_DEFAULT_MODEL, "--model", "-m",
-                               help="Modelo de referencia (usa 'eco-ai models' para ver la lista completa)."),
-    no_consent: bool = typer.Option(False, "--yes", "-y", help="Omitir la pantalla de consentimiento"),
-    no_tips: bool = typer.Option(False, "--no-tips", help="Mostrar solo métricas, sin sugerencias"),
+                               help="Reference model (run 'eco-ai models' for the full list)."),
+    no_consent: bool = typer.Option(False, "--yes", "-y", help="Skip the privacy consent screen"),
+    no_tips: bool = typer.Option(False, "--no-tips", help="Show metrics only, no suggestions"),
     output_ratio: float = typer.Option(0.4, "--output-ratio",
-                                        help="Fracción estimada de tokens de salida respecto a entrada (0–2)"),
+                                        help="Estimated output-to-input token ratio (0–2)"),
     lang: Optional[Lang] = typer.Option(None, "--lang", "-l",
-                                         help="Idioma del prompt: es (español) o en (inglés). Por defecto usa la config guardada."),
+                                         help="Prompt language: es (Spanish) or en (English). Defaults to saved config."),
     verbose: bool = typer.Option(False, "--verbose", "-v",
-                                  help="Muestra la referencia bibliográfica de cada sugerencia."),
+                                  help="Show bibliographic reference for each suggestion."),
     output_type: str = typer.Option(
         "auto", "--output-type", "-t",
-        help="Tipo de output esperado: auto (detecta), text, image, code, pdf, artifact.",
+        help="Expected output type: auto (detect), text, image, code, pdf, artifact.",
     ),
 ) -> None:
-    """Analiza el impacto ecológico de un prompt y sugiere optimizaciones."""
+    """Analyse the ecological impact of a prompt and suggest optimisations."""
 
     # Determinar idioma antes de cualquier output para que toda la UI sea consistente
     effective_lang = lang or get_lang()
@@ -401,7 +401,7 @@ def analyze(
 
 @app.command()
 def models() -> None:
-    """Lista los modelos disponibles y sus precios por 1 000 tokens."""
+    """List available models and their prices per 1 000 tokens."""
     lang = get_lang()
     es = lang == Lang.ES
 
@@ -435,13 +435,13 @@ def models() -> None:
 
 @app.command()
 def compare(
-    prompt: Optional[str] = typer.Argument(None, help="Texto del prompt a comparar"),
-    file: Optional[Path] = typer.Option(None, "--file", "-f"),
-    no_consent: bool = typer.Option(False, "--yes", "-y"),
+    prompt: Optional[str] = typer.Argument(None, help="Prompt text to compare"),
+    file: Optional[Path] = typer.Option(None, "--file", "-f", help="Read the prompt from a text file"),
+    no_consent: bool = typer.Option(False, "--yes", "-y", help="Skip the privacy consent screen"),
     output_ratio: float = typer.Option(0.4, "--output-ratio",
-                                        help="Fracción estimada de tokens de salida respecto a entrada (0–2)"),
+                                        help="Estimated output-to-input token ratio (0–2)"),
 ) -> None:
-    """Compara el impacto ecológico del mismo prompt en todos los modelos disponibles."""
+    """Compare the ecological impact of the same prompt across all available models."""
 
     lang = get_lang()
     es = lang == Lang.ES
@@ -531,10 +531,10 @@ def compare(
 @app.command()
 def config(
     set_language: Optional[Lang] = typer.Option(None, "--lang", "-l",
-                                                  help="Establece el idioma por defecto: es o en."),
-    show: bool = typer.Option(False, "--show", help="Muestra la configuración actual."),
+                                                  help="Set the default language: es or en."),
+    show: bool = typer.Option(False, "--show", help="Show the current configuration."),
 ) -> None:
-    """Gestiona la configuración persistente de eco-ai (~/.eco-ai.json)."""
+    """Manage persistent eco-ai configuration (~/.eco-ai.json)."""
     from .config import load, get_lang as _get_lang
 
     if set_language:
@@ -581,7 +581,7 @@ def config(
 
 @app.command()
 def guide() -> None:
-    """Muestra la guía de uso del plugin eco-ai."""
+    """Show the eco-ai usage guide."""
 
     lang = get_lang()
     es = lang == Lang.ES

@@ -108,6 +108,23 @@ Fuente: Liu et al. (2023) "Lost in the Middle".
 - ≥2 conectores aditivos ("además", "también", "also"…) → prompt chaining.
 Fuente: Anthropic Prompt Engineering Guide (2024) — prompt chaining para tareas complejas.
 
+### Tool routing — herramienta especializada más eficiente (checks 19–22)
+
+Detectar cuando un LLM no es la herramienta óptima y sugerir alternativas de menor impacto energético.
+La sugerencia siempre **menciona el término exacto del usuario** (p. ej. `"buenos"`, `"baratos"`) para máxima personalización.
+
+| Check | Trigger | Herramienta sugerida |
+|-------|---------|----------------------|
+| **19. Búsqueda local** | `_LOCAL_PLACE_TYPE_RE` + (`_LOCATION_SIGNAL_RE` o `_SEARCH_INTENT_RE`) | Google Maps, TripAdvisor |
+| **19b. Criterio vago** | place type + `_VAGUE_QUALITY_PLACE_RE` (sin ubicación) | Añadir contexto específico |
+| **20. Proximidad vaga** | `_VAGUE_PROXIMITY_RE` + ubicación + sin `_CONCRETE_DISTANCE_RE` | Especificar radio/medio |
+| **21. Tiempo real** | `_REALTIME_RE` (clima, noticias, precios, vuelos, horarios) | App dedicada, buscador |
+| **22. Rutas** | `_DIRECTIONS_RE` (cómo llegar, rutas, transporte) | Google Maps, Waze |
+
+**Regla de personalización:** si `_VAGUE_QUALITY_PLACE_RE` coincide, el término detectado se incrusta literalmente en `description` con `match.group(0)`.
+**Referencia energética:** búsqueda indexada ~0.0003 Wh vs. inferencia LLM ~0.001–0.01 Wh/consulta.
+Fuente: Luccioni et al. (2023) — coste energético de inferencia vs. búsqueda indexada.
+
 ## Sources
 
 - Luccioni et al. (2023) "Power Hungry Processing" — energía por token de inferencia
