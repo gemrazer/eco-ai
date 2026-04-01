@@ -107,6 +107,8 @@ function detectOutputType(text) {
 }
 
 const _RX_FILLER     = /\bpleas+e?\b|\bcould you\b|\bwould you\b|\bi would like( you)? to\b|\bif you (could|can|don'?t mind)\b|\bthanks? in advance\b|\bi need you to\b|\bkindly\b|\bif possible\b|\bpor\s*fa[bv]or\b|\bpodri[aá]s?\b|\bme gustar[ií]a que\b|\bsi puedes?\b|\bsi no te importa\b/i;
+const _RX_SENTIMENT  = /\b(me (lo paso (muy |s[uú]per )?bien|encanta|gusta (mucho|un mont[oó]n)|alegra|divierte|fascina|flipa)|estoy (muy )?(emocionad[ao]|content[ao]|feliz|entusiasmad[ao])|qu[eé] (guay|chulo|cool|pasada|gozada)|es (genial|incre[ií]ble|alucinante|chul[oa]|super[- ]?(chulo|guay))|i (love|really enjoy|really like) (it|this|using|working with)|i'?m (so )?(excited|loving it|having (a lot of )?fun)|this is (great|awesome|amazing|so cool))\b/i;
+const _RX_VAGUE_REQ  = /\b(dame ideas|give me ideas|ideas (de |para |sobre |for |about |on )\w|brainstorm( some| ideas)?|qu[eé] (puedo|podr[ií]a) (hacer|crear|construir|desarrollar|hacer)\b|what (can|should|could) i (do|make|build|create)\b)/i;
 const _RX_INTRO      = /^(hello|hi|hey|good morning|good afternoon|hola|buenas?|buenos d[ií]as)[,!.]?\s/i;
 const _RX_VAGUE      = /\bkind of\b|\bsort of\b|\bmore or less\b|\bsomething like\b|\bm[aá]s o menos\b|\balgo as[ií]\b|\bde alguna manera\b/gi;
 const _RX_HIGH_VERB  = /^(analiz[ae]|analyze|explain|explica|create|crea|justify|justifica|write|escribe)\b/i;
@@ -160,6 +162,9 @@ function getSuggestions(text) {
     }
     suggestions.push({ strong: 'Consider Google Maps or Search instead', rest: ' — for finding real places nearby, a search engine is more accurate, uses live data, and consumes ~50× less energy per query than an AI model.' });
   }
+
+  if (_RX_SENTIMENT.test(t))  suggestions.push({ strong: 'Remove personal commentary', rest: ' — phrases like "me lo paso muy bien" don\'t help the model produce better output. Replace sentiment with context: what you\'ve built so far, your skill level, or the goal.' });
+  if (_RX_VAGUE_REQ.test(t) && wc < 50 && !_RX_FORMAT.test(t)) suggestions.push({ strong: '"Dame ideas" is too open-ended', rest: ' — specify domain, constraints and format: e.g. "List 5 beginner-friendly Claude API app ideas in one sentence each, focused on productivity."' });
 
   if (wc < 10) {
     const hint = _SHORT_PROMPT_HINTS[type] || 'Add more context.';
