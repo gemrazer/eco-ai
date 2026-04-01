@@ -697,6 +697,13 @@ footer::after {
   color: var(--text-tertiary);
 }
 
+.footer-disclaimer {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+  opacity: 0.6;
+}
+
 .footer-main {
   letter-spacing: 0.1em;
 }
