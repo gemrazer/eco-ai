@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>eco-ai — Every prompt has a cost.</title>
+  <meta name="description" content="Estimate the ecological impact of your AI prompts. Token count, energy, CO₂, water, and cost — locally, privately." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <script>
+    (function () {
+      var s = localStorage.getItem('eco-ai-theme');
+      if (!s) { try { s = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; } catch (e) { s = 'dark'; } }
+      document.documentElement.setAttribute('data-theme', s);
+    })();
+  </script>
+</head>
+<body>
+
+  <div class="ambient" aria-hidden="true"></div>
+
+  <button class="theme-toggle" id="theme-toggle" aria-label="Toggle light/dark mode">
+    <!-- Sun: shown in dark mode -->
+    <span class="theme-toggle-icon icon-sun" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="4"/>
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+      </svg>
+    </span>
+    <!-- Moon: shown in light mode -->
+    <span class="theme-toggle-icon icon-moon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+      </svg>
+    </span>
+  </button>
+
+  <div class="page">
+
+    <!-- Header -->
+    <header>
+      <p class="wordmark">eco-ai v1.0.0</p>
+      <h1>Every prompt<br>has a <em>cost.</em> See yours.</h1>
+      <p class="subtitle">Estimate your ecological footprint per prompt: tokens, energy, CO₂ and water. Find out which model gets you the same result for less.</p>
+    </header>
+
+    <!-- Input -->
+    <div class="input-area">
+      <div class="input-card">
+        <div class="textarea-wrap">
+          <textarea
+            id="prompt-input"
+            placeholder="Paste or type a prompt to analyze its ecological impact…"
+            spellcheck="false"
+            aria-label="AI prompt to analyze"
+          ></textarea>
+        </div>
+        <div class="input-footer">
+          <span class="token-live" id="token-counter" aria-live="polite">0 tokens</span>
+          <button class="btn-analyze" id="analyze-btn" disabled aria-label="Analyze prompt">
+            <span class="btn-label">Analyze</span>
+            <span class="btn-icon-wrap" aria-hidden="true">
+              <!-- Default: leaf icon -->
+              <span class="btn-icon-default">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
+                  <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+                </svg>
+              </span>
+              <!-- Active: spinner/pulse icon -->
+              <span class="btn-icon-active">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                </svg>
+              </span>
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="results-area" id="results-area" aria-live="polite">
+      <div class="placeholder-hint" id="placeholder-hint">
+        <p>Type a prompt above to begin.</p>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="section-divider" aria-hidden="true"></div>
+    <footer>
+      <a class="footer-link" href="https://github.com/Gemrazer/eco-ai" target="_blank" rel="noopener">install the CLI plugin on GitHub ↗</a>
+      <p class="footer-main">eco-ai — local analysis, no data sent externally</p>
+      <p class="footer-copy">MIT License · © 2026 <a class="footer-copy-link" href="https://www.linkedin.com/in/maria-prokhorova-product-design/" target="_blank" rel="noopener">Maria Prokhorova</a></p>
+    </footer>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
