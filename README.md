@@ -76,7 +76,6 @@ eco-ai config --lang en
 | `--lang` | Prompt language (`es` or `en`) | Saved config |
 | `--verbose` | Show bibliographic references for each suggestion | — |
 | `--no-tips` | Show only metrics, no suggestions | — |
-| `-y / --yes` | Skip the privacy consent screen | — |
 
 ---
 

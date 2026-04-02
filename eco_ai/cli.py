@@ -10,10 +10,9 @@ import typer
 from rich import box
 from rich.console import Console
 from rich.panel import Panel
-from rich.prompt import Confirm
 from rich.table import Table
 
-from .config import Lang, get_lang, set_lang
+from .config import Lang, get_lang, load as _load_cfg, save as _save_cfg, set_lang
 from .metrics import MODEL_PRICES_USD, MODEL_TIER, calculate_impact
 from .optimizer import analyze as analyze_prompt, detect_task_type, positive_aspects, recommend_model
 from .tokenizer import count_tokens, tokenizer_source
@@ -79,34 +78,13 @@ def main(ctx: typer.Context) -> None:
 MODELS = list(MODEL_PRICES_USD.keys())
 
 
-def _print_consent_notice(lang: Lang) -> bool:
-    console.print()
+def _print_first_use_notice(lang: Lang) -> None:
     if lang == Lang.ES:
-        body = (
-            "[bold yellow]Aviso de privacidad y consentimiento[/bold yellow]\n\n"
-            "Este análisis se realiza [bold]localmente en tu dispositivo[/bold].\n"
-            "Tu texto [bold]no se envía[/bold] a ningún servidor externo.\n\n"
-            "Los datos analizados son:\n"
-            "  • El texto del prompt que proporciones\n"
-            "  • Su longitud y estructura\n\n"
-            "Las estimaciones de impacto ecológico son [italic]aproximaciones[/italic] "
-            "basadas en investigación publicada — no datos exactos de ningún proveedor."
-        )
-        question = "[yellow]¿Autorizas el análisis de tu prompt?[/yellow]"
+        msg = "eco-ai analiza tus prompts [bold]localmente[/bold]. Ningún dato sale de tu máquina."
     else:
-        body = (
-            "[bold yellow]Privacy notice and consent[/bold yellow]\n\n"
-            "This analysis runs [bold]locally on your device[/bold].\n"
-            "Your text is [bold]never sent[/bold] to any external server.\n\n"
-            "The data analysed is:\n"
-            "  • The prompt text you provide\n"
-            "  • Its length and structure\n\n"
-            "Ecological impact estimates are [italic]approximations[/italic] "
-            "based on published research — not exact figures from any provider."
-        )
-        question = "[yellow]Do you authorise the analysis of your prompt?[/yellow]"
-    console.print(Panel(body, title="[bold]eco-ai[/bold]", border_style="yellow"))
-    return Confirm.ask(question)
+        msg = "eco-ai analyses your prompts [bold]locally[/bold]. No data leaves your machine."
+    console.print()
+    console.print(Panel(msg, border_style="dim", padding=(0, 1)))
 
 
 _DEFAULT_MODEL = "Claude Sonnet 4.6"
@@ -242,7 +220,6 @@ def analyze(
     file: Optional[Path] = typer.Option(None, "--file", "-f", help="Read the prompt from a text file"),
     model: str = typer.Option(_DEFAULT_MODEL, "--model", "-m",
                                help="Reference model (run 'eco-ai models' for the full list)."),
-    no_consent: bool = typer.Option(False, "--yes", "-y", help="Skip the privacy consent screen"),
     no_tips: bool = typer.Option(False, "--no-tips", help="Show metrics only, no suggestions"),
     output_ratio: float = typer.Option(0.4, "--output-ratio",
                                         help="Estimated output-to-input token ratio (0–2)"),
@@ -335,16 +312,12 @@ def analyze(
             console.print(f"[dim]{'Disponibles' if es else 'Available'}: {', '.join(MODELS)}[/dim]")
             raise typer.Exit(1)
 
-    # --- Consentimiento ---
-    if not no_consent:
-        authorized = _print_consent_notice(effective_lang)
-        if not authorized:
-            console.print(
-                "\n[yellow]Análisis cancelado. No se ha procesado ningún dato.[/yellow]\n"
-                if es else
-                "\n[yellow]Analysis cancelled. No data was processed.[/yellow]\n"
-            )
-            raise typer.Exit(0)
+    # --- Aviso de primera vez ---
+    _data = _load_cfg()
+    if not _data.get("seen_privacy_notice"):
+        _print_first_use_notice(effective_lang)
+        _data["seen_privacy_notice"] = True
+        _save_cfg(_data)
 
     # --- Análisis ---
     console.print()
