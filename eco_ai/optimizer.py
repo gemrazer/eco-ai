@@ -574,6 +574,102 @@ _PERSONAL_EN = re.compile(
     r"|\bhow (many|much) (should|do) i\b"
 )
 
+# ---------------------------------------------------------------------------
+# Revisión vaga sin especificación de qué mejorar
+# Fuente: "Designers hit Claude's usage limits faster than anyone" (2026) — lazy prompting.
+# ---------------------------------------------------------------------------
+_VAGUE_REVISION_ES = re.compile(
+    r"\b(hazlo (mejor|mas bonito|mas chulo|mas profesional|diferente|mas limpio|mas claro))"
+    r"|\bmejoralo\b|\barreglalo\b|\bcambialo\b"
+    r"|\bque (quede|se vea) (mejor|mas bonito|mas limpio|mas profesional)\b"
+    r"|\b(queda|se ve|esta) (raro|mal|feo|horrible)\b"
+    r"|\ble (falta|hace falta) (algo|vida|dinamismo|energia)\b"
+    r"|\bno me (convence|gusta|mola)\b"
+    r"|\bpodria (estar|quedar|verse|ser) (mejor|mas claro|mas limpio|mas profesional)\b"
+)
+_VAGUE_REVISION_EN = re.compile(
+    r"\b(make it (better|nicer|cleaner|prettier|more professional|different|look better))"
+    r"|\bimprove (it|this)\b"
+    r"|\bfix (it|this)\b"
+    r"|\bchange (it|this)\b"
+    r"|\b(looks?|seems?) (weird|bad|off|wrong|messy|boring|flat)\b"
+    r"|\bit('?s| is) (missing something|not quite right|off|lacking|not good enough)\b"
+    r"|\bcould (look|be) (better|cleaner|clearer|more polished|nicer)\b"
+    r"|\bi don'?t (like|love) (it|this)\b"
+)
+
+# ---------------------------------------------------------------------------
+# Delegación de estrategia al modelo (outsourcing thinking)
+# El modelo no conoce usuarios ni restricciones del proyecto; preguntar sin contexto
+# produce opciones genéricas que requieren múltiples rondas de aclaración.
+# Fuente: "Designers hit Claude's usage limits faster than anyone" (2026).
+# ---------------------------------------------------------------------------
+_OUTSOURCE_THINKING_ES = re.compile(
+    r"\b(que (deberia|podria|tendria que) (hacer|usar|elegir|poner|escribir|decir|implementar|crear|construir))\b"
+    r"|\b(como (deberia|podria) (enfocarlo|abordarlo|plantearlo|hacerlo|estructurarlo))\b"
+    r"|\b(cual (es|seria|podria ser) la mejor (forma|manera|opcion|alternativa|estrategia|estructura) (de|para))\b"
+    r"|\b(que (crees|piensas|opinas) que (debo|deberia|podria|seria mejor))\b"
+    r"|\ba ver que (me propones|se te ocurre|generas|sugieres)\b"
+)
+_OUTSOURCE_THINKING_EN = re.compile(
+    r"\b(what should i (do|use|choose|write|say|implement|pick|go with|build|create))\b"
+    r"|\b(how should i (approach|handle|tackle|do|frame|structure|organize) (this|it))\b"
+    r"|\b(what('?s| is) (the )?best (way|approach|option|strategy|structure) (to|for))\b"
+    r"|\b(what do you (think|suggest|recommend) (i should|about))\b"
+    r"|\b(let'?s see what (you|it) (comes? up with|generates?|suggests?))\b"
+)
+
+# ---------------------------------------------------------------------------
+# Screenshot mencionado sin contexto de recorte / tamaño
+# Una captura completa (1000×1000 px) cuesta ~1 334 tokens vs. ~54 de un recorte
+# de 200×200 px — diferencia de 25×.
+# Fuente: "Designers hit Claude's usage limits faster than anyone" (2026).
+# ---------------------------------------------------------------------------
+_SCREENSHOT_MENTION_RE = re.compile(
+    r"\b(screenshot|captura (de pantalla|de la pantalla|completa)|pantalla completa"
+    r"|full.?page (screenshot|capture)|full screen|capture (of|del|de la) (screen|pantalla)"
+    r"|imagen (de la|del) (pantalla|interface|interfaz|diseno)"
+    r"|foto (de la|del) (pantalla|diseno|interfaz))\b"
+)
+_SCREENSHOT_CROP_RE = re.compile(
+    r"\b(recorta(do)?|crop(ped)?|solo (el|la|este|esta)|only (the|this)|just (the|this)"
+    r"|\d+\s*(px|pixels?|pixeles?)|componente (especifico|concreto)|elemento (especifico|concreto)"
+    r"|(zona|area|seccion|parte) (especifica|concreta|del|de la))\b"
+)
+
+# ---------------------------------------------------------------------------
+# Comentario emocional sin valor para el prompt
+# Fuente: "Designers hit Claude's usage limits faster than anyone" (2026) — token burn.
+# ---------------------------------------------------------------------------
+_SENTIMENT_ES = re.compile(
+    r"\b(me (lo paso (muy |super )?bien|encanta|gusta (mucho|un monton)|alegra|divierte|fascina)"
+    r"|estoy (muy )?(emocionado|contento|feliz|entusiasmado)"
+    r"|que (guay|chulo|cool|pasada|gozada)"
+    r"|es (genial|increible|alucinante|chulo|super))\b"
+)
+_SENTIMENT_EN = re.compile(
+    r"\b(i (love|really enjoy|really like) (it|this|using|working with)"
+    r"|i'?m (so )?(excited|loving it|having (a lot of )?fun)"
+    r"|this is (great|awesome|amazing|so cool))\b"
+)
+
+# ---------------------------------------------------------------------------
+# Petición de ideas vaga sin dominio ni restricciones
+# Fuente: "Designers hit Claude's usage limits faster than anyone" (2026) — one-sentence context.
+# ---------------------------------------------------------------------------
+_VAGUE_IDEAS_ES = re.compile(
+    r"\b(dame ideas\b"
+    r"|ideas (de|para|sobre)\b"
+    r"|que (puedo|podria) (hacer|crear|construir|desarrollar)\b"
+    r"|a ver que se (me|te) (ocurre|sale))\b"
+)
+_VAGUE_IDEAS_EN = re.compile(
+    r"\b(give me ideas\b"
+    r"|ideas (for|about|on)\b"
+    r"|brainstorm( some| ideas)?\b"
+    r"|what (can|should|could) i (do|make|build|create)\b)\b"
+)
+
 
 @dataclass
 class _PersonalDomain:
@@ -1658,6 +1754,151 @@ def analyze(text: str, lang: Lang = Lang.ES, output_type: str = "text") -> list[
                 "Algorithmic routing vs. LLM: ~1 000× less energy per query"
             ),
             source="Luccioni et al. (2023) — búsqueda indexada y routing algorítmico vs. inferencia neuronal",
+        ))
+
+    # 23. Revisión vaga sin especificación de qué mejorar
+    # "Hazlo mejor" no indica qué está mal: el modelo cambia algo arbitrario y la respuesta
+    # requiere otra ronda de corrección. Cada iteración reprocesa el historial completo.
+    # Fuente: "Designers hit Claude's usage limits faster than anyone" (2026).
+    vague_revision_re = _VAGUE_REVISION_ES if lang == Lang.ES else _VAGUE_REVISION_EN
+    if vague_revision_re.search(norm):
+        suggestions.append(Suggestion(
+            category="Revisión vaga" if lang == Lang.ES else "Vague revision",
+            description=(
+                '"Hazlo mejor" o "arréglalo" no indican qué está mal. El modelo cambia algo '
+                "arbitrario y el resultado requiere otra ronda. Especifica el aspecto concreto: "
+                "contraste, jerarquía, copy, espaciado, tono, etc."
+                if lang == Lang.ES else
+                '"Make it better" or "fix it" gives no information about what\'s wrong. '
+                "The model changes something arbitrary and you need to correct it again. "
+                "Specify the exact aspect: contrast, hierarchy, copy, spacing, tone, etc."
+            ),
+            example=(
+                '"Hazlo mejor" → "El espaciado entre secciones es muy pequeño; aumenta el padding a 32px. El CTA no es claro — cámbialo por una acción directa."'
+                if lang == Lang.ES else
+                '"Make it better" → "The spacing between sections is too tight; increase padding to 32px. The CTA is unclear — replace it with a direct action."'
+            ),
+            savings_estimate=(
+                "Evita 2–4 rondas de iteración aleatoria"
+                if lang == Lang.ES else
+                "Avoids 2–4 random iteration rounds"
+            ),
+            source='"Designers hit Claude\'s usage limits faster than anyone" (2026) — vague revision requests',
+        ))
+
+    # 24. Delegación de estrategia al modelo (outsourcing thinking)
+    # El modelo no conoce el proyecto, los usuarios ni las restricciones. Preguntar
+    # «qué debería usar» sin contexto genera opciones genéricas que requieren 3–5 mensajes
+    # de aclaración. Front-loading el contexto antes de enviar es la solución.
+    # Fuente: "Designers hit Claude's usage limits faster than anyone" (2026).
+    outsource_re = _OUTSOURCE_THINKING_ES if lang == Lang.ES else _OUTSOURCE_THINKING_EN
+    if outsource_re.search(norm) and len(words) < 50:
+        suggestions.append(Suggestion(
+            category="Pensamiento delegado al modelo" if lang == Lang.ES else "Outsourcing thinking to the model",
+            description=(
+                "El modelo no conoce tus usuarios, restricciones ni objetivos. "
+                "Sin contexto genera opciones genéricas que requerirán aclaraciones. "
+                "Antes de enviar el prompt respóndete: ¿qué necesitas exactamente?, "
+                "¿qué restricciones tienes? y ¿qué significa «hecho» para ti?"
+                if lang == Lang.ES else
+                "The model doesn't know your users, constraints or goals. "
+                "Without context it generates generic options requiring clarifications. "
+                "Before sending the prompt, answer yourself: what exactly do you need, "
+                "what are your constraints, and what does done look like?"
+            ),
+            example=(
+                '"¿Qué debería usar?" → "Necesito X para Y con restricción Z. ¿Cuál encaja mejor: A o B?"'
+                if lang == Lang.ES else
+                '"What should I use?" → "I need X for Y with constraint Z. Which fits best: A or B?"'
+            ),
+            savings_estimate=(
+                "Evita 3–5 mensajes de aclaración por falta de contexto"
+                if lang == Lang.ES else
+                "Avoids 3–5 clarification messages due to missing context"
+            ),
+            source='"Designers hit Claude\'s usage limits faster than anyone" (2026) — outsourcing thinking entirely',
+        ))
+
+    # 25. Screenshot implícito sin instrucción de crop/tamaño
+    # Una captura completa (1000×1000 px) consume ~1 334 tokens; un recorte de 200×200 px
+    # cuesta ~54 tokens — 25× menos. Recortar al elemento relevante antes de subir
+    # es la forma más eficiente de reducir el coste de tokens de imagen.
+    # Fuente: "Designers hit Claude's usage limits faster than anyone" (2026).
+    if _SCREENSHOT_MENTION_RE.search(norm) and not _SCREENSHOT_CROP_RE.search(norm):
+        suggestions.append(Suggestion(
+            category="Imagen sin recortar — coste elevado" if lang == Lang.ES else "Uncropped image — high token cost",
+            description=(
+                "Una captura completa (1000×1000 px) consume ~1 334 tokens. "
+                "Un recorte del componente específico (200×200 px) cuesta ~54 tokens: 25× menos. "
+                "Recorta la imagen al elemento concreto antes de subirla."
+                if lang == Lang.ES else
+                "A full-page screenshot (1000×1000 px) costs ~1 334 tokens. "
+                "A crop of the specific component (200×200 px) costs ~54 tokens: 25× less. "
+                "Crop the image to the specific element before uploading."
+            ),
+            example=(
+                "Captura completa → ~1 334 tokens  ·  Recorte del componente (200×200 px) → ~54 tokens"
+                if lang == Lang.ES else
+                "Full screenshot → ~1 334 tokens  ·  Component crop (200×200 px) → ~54 tokens"
+            ),
+            savings_estimate=(
+                "~25× menos tokens por imagen recortada al elemento relevante"
+                if lang == Lang.ES else
+                "~25× fewer tokens by cropping to the relevant element"
+            ),
+            source='"Designers hit Claude\'s usage limits faster than anyone" (2026) — image token costs scale with size',
+        ))
+
+    # 26. Comentario emocional sin valor para el prompt
+    # Expresiones de sentimiento consumen tokens sin aportar contexto al modelo.
+    # Fuente: "Designers hit Claude's usage limits faster than anyone" (2026) — token burn.
+    sentiment_re = _SENTIMENT_ES if lang == Lang.ES else _SENTIMENT_EN
+    if sentiment_re.search(norm):
+        suggestions.append(Suggestion(
+            category="Comentario personal sin valor" if lang == Lang.ES else "Personal commentary without value",
+            description=(
+                "Expresiones como «me encanta» o «me lo paso muy bien» no aportan contexto "
+                "y consumen tokens sin mejorar el output. Sustitúyelas por contexto útil: "
+                "qué has construido hasta ahora, tu nivel o el objetivo que persigues."
+                if lang == Lang.ES else
+                "Expressions like 'I love it' or 'I'm having so much fun' add no context "
+                "and burn tokens without improving output. Replace them with useful context: "
+                "what you've built so far, your skill level or the goal you're pursuing."
+            ),
+            savings_estimate=(
+                "~5–10% menos tokens + respuestas más precisas"
+                if lang == Lang.ES else
+                "~5–10% fewer tokens + more precise responses"
+            ),
+            source='"Designers hit Claude\'s usage limits faster than anyone" (2026) — token burn patterns',
+        ))
+
+    # 27. Petición de ideas vaga sin dominio ni restricciones
+    # «Dame ideas» sin dominio genera listas genéricas que rara vez encajan y requieren
+    # rondas de refinamiento. Especificar área, nivel y formato lo resuelve en un solo turno.
+    # Fuente: "Designers hit Claude's usage limits faster than anyone" (2026).
+    vague_ideas_re = _VAGUE_IDEAS_ES if lang == Lang.ES else _VAGUE_IDEAS_EN
+    if vague_ideas_re.search(norm) and len(words) < 50 and not any(f in norm for f in fmt_words):
+        suggestions.append(Suggestion(
+            category="Petición de ideas demasiado abierta" if lang == Lang.ES else "Ideas request too open-ended",
+            description=(
+                "«Dame ideas» sin dominio ni restricciones genera listas genéricas que rara vez encajan. "
+                "Especifica: área concreta, tu nivel actual, el usuario final y el formato esperado."
+                if lang == Lang.ES else
+                '"Give me ideas" without domain or constraints generates generic lists that rarely fit. '
+                "Specify: the concrete area, your current level, the end user and the expected format."
+            ),
+            example=(
+                '"Dame ideas" → "Lista 5 ideas de app con la API de Claude para principiantes, enfocadas en productividad, en una frase cada una."'
+                if lang == Lang.ES else
+                '"Give me ideas" → "List 5 beginner-friendly Claude API app ideas focused on productivity, one sentence each."'
+            ),
+            savings_estimate=(
+                "Evita 2–3 rondas de refinamiento por falta de foco"
+                if lang == Lang.ES else
+                "Avoids 2–3 refinement rounds due to lack of focus"
+            ),
+            source='"Designers hit Claude\'s usage limits faster than anyone" (2026) — one-sentence context pattern',
         ))
 
     return suggestions
