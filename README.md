@@ -122,4 +122,4 @@ All analysis happens on your device. Your prompt text is never sent to any exter
 
 ## License
 
-MIT © [Maria Prokhorova](https://github.com/your-username)
+MIT © [Maria Prokhorova](https://github.com/gemrazer)
